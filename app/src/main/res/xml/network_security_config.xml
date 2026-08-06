@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MoneyPrinterTurbo is normally self-hosted on a LAN box, a home server or a VPS
+  reachable over plain http://host:8080. Cleartext is therefore allowed, but a
+  user-added CA is also trusted so a self-signed https certificate works too.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
