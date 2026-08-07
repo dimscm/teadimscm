@@ -29,20 +29,41 @@ say "Memperbarui daftar paket"
 pkg update -y
 pkg upgrade -y
 
-# ffmpeg dari Termux dipakai menggantikan binary bawaan imageio-ffmpeg, yang
-# dikompilasi untuk glibc dan tidak jalan di Android.
-# rust dibutuhkan karena pydantic-core dan jiter tidak punya wheel siap pakai
-# untuk Android, jadi keduanya dibangun dari sumber.
-say "Memasang paket sistem (ini bagian paling lama)"
-pkg install -y \
-  python python-pip git ffmpeg rust binutils \
-  libjpeg-turbo libpng freetype littlecms openssl \
-  clang make pkg-config
+# Dipasang satu per satu, bukan sekaligus: kalau satu nama paket tidak ada di
+# repositori Termux, pemasangan borongan akan gagal seluruhnya dan menyeret yang
+# lain ikut batal.
+install_required() {
+  for package in "$@"; do
+    say "Memasang ${package}"
+    pkg install -y "${package}"
+  done
+}
 
-# numpy dan pillow dipasang lewat pkg, bukan pip: keduanya punya ekstensi C yang
-# membangunnya dari sumber di HP itu lambat dan gampang gagal.
-say "Memasang numpy dan pillow dari paket Termux"
-pkg install -y python-numpy python-pillow
+install_optional() {
+  for package in "$@"; do
+    if pkg install -y "${package}"; then
+      printf '    %s terpasang\n' "${package}"
+    else
+      warn "${package} tidak tersedia, dilewati"
+    fi
+  done
+}
+
+# ffmpeg dari Termux menggantikan binary bawaan imageio-ffmpeg, yang dikompilasi
+# untuk glibc dan tidak jalan di Android.
+# rust dan clang dibutuhkan karena pydantic-core dan jiter tidak punya wheel
+# siap pakai untuk Android, jadi keduanya dibangun dari sumber.
+say "Memasang paket wajib"
+install_required python git ffmpeg rust clang make
+
+say "Memasang paket pendukung"
+install_optional binutils pkg-config libjpeg-turbo libpng freetype littlecms openssl
+
+# numpy dan pillow lewat pkg kalau ada: keduanya punya ekstensi C yang kalau
+# dibangun dari sumber di HP itu lambat dan gampang gagal. Kalau paketnya tidak
+# ada, pip yang menanganinya nanti.
+say "Mencoba memasang numpy dan pillow dari paket Termux"
+install_optional python-numpy python-pillow
 
 if [ -d "${TARGET_DIR}" ]; then
   say "MoneyPrinterTurbo sudah ada, mengambil pembaruan"
@@ -94,7 +115,37 @@ audioop-lts==0.2.2; python_version >= "3.13"
 REQS
 
 pip install --upgrade pip wheel setuptools
+
+# numpy dan pillow ikut di sini hanya kalau paket Termux-nya tadi tidak terpasang.
+python - <<'PY' >> requirements-termux.txt
+import importlib.util
+for module, requirement in (("numpy", "numpy"), ("PIL", "pillow")):
+    if importlib.util.find_spec(module) is None:
+        print(requirement)
+PY
+
 pip install -r requirements-termux.txt
+
+say "Memeriksa apakah paket intinya benar-benar bisa dimuat"
+python - <<'PY'
+import sys
+
+failed = []
+for module in ("numpy", "PIL", "moviepy", "edge_tts", "fastapi", "uvicorn", "openai", "pydub"):
+    try:
+        __import__(module)
+    except Exception as error:
+        failed.append(f"{module}: {error}")
+
+if failed:
+    print("\nModul yang gagal dimuat:")
+    for line in failed:
+        print("  -", line)
+    print("\nKirimkan daftar di atas supaya bisa diperbaiki.")
+    sys.exit(1)
+
+print("Semua modul inti berhasil dimuat.")
+PY
 
 if [ ! -f config.toml ]; then
   say "Membuat config.toml"
