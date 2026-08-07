@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigasi -->
+    <string name="nav_create">Buat</string>
+    <string name="nav_tasks">Tugas</string>
+    <string name="nav_settings">Pengaturan</string>
+
+    <!-- Umum -->
+    <string name="action_save">Simpan</string>
+    <string name="action_cancel">Batal</string>
+    <string name="action_confirm">Ya, lanjut</string>
+    <string name="action_back">Kembali</string>
+    <string name="action_refresh">Muat ulang</string>
+    <string name="action_show">Tampilkan</string>
+    <string name="action_hide">Sembunyikan</string>
+    <string name="msg_saved">Tersimpan</string>
+    <string name="msg_no_server">Isi dulu alamat server MoneyPrinterTurbo di Pengaturan.</string>
+
+    <!-- Layar buat video -->
+    <string name="create_title">Video baru</string>
+    <string name="section_content">Konten</string>
+    <string name="section_video">Video</string>
+    <string name="section_voice">Suara</string>
+    <string name="section_music">Musik latar</string>
+    <string name="section_subtitle">Subtitle</string>
+    <string name="section_advanced">Lanjutan</string>
+
+    <string name="label_subject">Topik</string>
+    <string name="hint_subject">mis. 5 kebiasaan pagi yang mengubah hidup</string>
+    <string name="label_script">Naskah</string>
+    <string name="hint_script">Kosongkan kalau mau ditulis AI</string>
+    <string name="label_terms">Kata kunci pencarian</string>
+    <string name="hint_terms">Kata kunci bahasa Inggris, pisahkan dengan koma</string>
+    <string name="label_script_prompt">Instruksi tambahan untuk AI</string>
+    <string name="hint_script_prompt">mis. gaya santai, akhiri dengan pertanyaan</string>
+    <string name="label_language">Bahasa naskah</string>
+    <string name="language_auto">Ikuti bahasa topik</string>
+    <string name="label_paragraphs">Jumlah paragraf</string>
+
+    <string name="action_generate_script">Tulis naskah pakai AI</string>
+    <string name="action_generate_terms">Buat kata kunci</string>
+    <string name="msg_generating">Sedang membuat…</string>
+    <string name="msg_subject_required">Isi topiknya dulu.</string>
+    <string name="msg_script_required">Belum ada naskah untuk dijadikan kata kunci.</string>
+
+    <string name="label_aspect">Rasio layar</string>
+    <string name="label_concat_mode">Urutan klip</string>
+    <string name="concat_random">Acak</string>
+    <string name="concat_sequential">Berurutan</string>
+    <string name="label_transition">Transisi</string>
+    <string name="transition_none">Tanpa transisi</string>
+    <string name="transition_shuffle">Acak</string>
+    <string name="transition_fade_in">Fade in</string>
+    <string name="transition_fade_out">Fade out</string>
+    <string name="transition_slide_in">Slide in</string>
+    <string name="transition_slide_out">Slide out</string>
+    <string name="transition_zoom_in">Zoom in</string>
+    <string name="transition_zoom_out">Zoom out</string>
+    <string name="label_clip_duration">Durasi maks. per klip (detik)</string>
+    <string name="label_clip_speed">Kecepatan klip</string>
+    <string name="label_video_count">Jumlah video</string>
+    <string name="label_video_source">Sumber footage</string>
+    <string name="label_match_materials">Cocokkan footage dengan naskah</string>
+    <string name="label_threads">Thread encoding</string>
+
+    <string name="label_voice">Suara</string>
+    <string name="label_voice_volume">Volume suara</string>
+    <string name="label_voice_rate">Kecepatan bicara</string>
+
+    <string name="label_bgm_type">Musik</string>
+    <string name="bgm_random">Acak</string>
+    <string name="bgm_none">Tanpa musik</string>
+    <string name="bgm_custom">Pilih dari server</string>
+    <string name="label_bgm_file">Berkas musik</string>
+    <string name="label_bgm_volume">Volume musik</string>
+
+    <string name="label_subtitle_enabled">Tempel subtitle di video</string>
+    <string name="label_subtitle_position">Posisi</string>
+    <string name="subtitle_top">Atas</string>
+    <string name="subtitle_center">Tengah</string>
+    <string name="subtitle_bottom">Bawah</string>
+    <string name="subtitle_custom">Kustom</string>
+    <string name="label_custom_position">Posisi vertikal (%)</string>
+    <string name="label_font_name">Berkas font di server</string>
+    <string name="label_font_size">Ukuran font</string>
+    <string name="label_text_color">Warna teks</string>
+    <string name="label_stroke_color">Warna garis tepi</string>
+    <string name="label_stroke_width">Tebal garis tepi</string>
+    <string name="label_text_background">Latar teks</string>
+    <string name="label_rounded_background">Sudut latar membulat</string>
+
+    <string name="action_start">Buat video</string>
+    <string name="action_reset">Kosongkan formulir</string>
+    <string name="msg_task_created">Tugas masuk antrean. Pantau di tab Tugas.</string>
+
+    <!-- Tugas -->
+    <string name="tasks_title">Tugas</string>
+    <string name="tasks_empty">Belum ada tugas. Buat video pertamamu.</string>
+    <string name="state_processing">Diproses</string>
+    <string name="state_complete">Selesai</string>
+    <string name="state_failed">Gagal</string>
+    <string name="state_unknown">Tidak diketahui</string>
+    <string name="label_progress">Progres</string>
+    <string name="action_delete">Hapus</string>
+    <string name="confirm_delete_title">Hapus tugas ini?</string>
+    <string name="confirm_delete_msg">Tugas beserta berkasnya dihapus dari server dan tidak bisa dikembalikan.</string>
+
+    <!-- Detail tugas -->
+    <string name="task_detail_title">Detail tugas</string>
+    <string name="label_task_id">ID tugas</string>
+    <string name="label_state">Status</string>
+    <string name="label_videos">Hasil</string>
+    <string name="label_error">Error</string>
+    <string name="label_failed_stage">Gagal di tahap</string>
+    <string name="action_play">Putar</string>
+    <string name="action_download">Unduh</string>
+    <string name="action_share">Bagikan</string>
+    <string name="msg_download_started">Mengunduh…</string>
+    <string name="msg_download_failed">Unduhan gagal</string>
+    <string name="video_index">Video %1$d</string>
+
+    <!-- Pengaturan -->
+    <string name="settings_title">Pengaturan</string>
+    <string name="tab_server">Server</string>
+    <string name="tab_ai">AI</string>
+    <string name="tab_defaults">Default</string>
+
+    <string name="label_server_url">Alamat server</string>
+    <string name="server_url_help">Alamat instance MoneyPrinterTurbo milikmu. Bagian /api/v1 ditambahkan otomatis oleh aplikasi.</string>
+    <string name="label_server_api_key">API key server</string>
+    <string name="hint_server_api_key">Kosongkan kalau server tidak pakai api_key</string>
+    <string name="server_api_key_help">Dikirim sebagai header x-api-key, sesuai app.api_key di config.toml.</string>
+    <string name="action_test_connection">Tes koneksi</string>
+    <string name="msg_test_ok">Terhubung. Server merespons normal.</string>
+    <string name="msg_test_failed">Gagal terhubung: %1$s</string>
+
+    <string name="label_ai_mode">AI-nya jalan di mana?</string>
+    <string name="ai_mode_server">Pakai AI di server</string>
+    <string name="ai_mode_server_desc">Naskah dan kata kunci dibuat memakai API key yang sudah diatur di server.</string>
+    <string name="ai_mode_device">Pakai API key sendiri</string>
+    <string name="ai_mode_device_desc">Aplikasi memanggil penyedia AI langsung dari HP ini. Key dienkripsi di perangkat dan tidak pernah dikirim ke server.</string>
+    <string name="label_ai_provider">Penyedia</string>
+    <string name="label_ai_api_key">API key</string>
+    <string name="label_ai_base_url">Base URL</string>
+    <string name="label_ai_model">Model</string>
+    <string name="action_test_ai">Tes API key AI</string>
+    <string name="msg_ai_test_ok">API key berfungsi. Balasan: %1$s</string>
+    <string name="ai_key_help">Disimpan terenkripsi memakai Android keystore, hanya di perangkat ini.</string>
+
+    <string name="defaults_help">Nilai ini dipakai sebagai isian awal setiap membuat video baru.</string>
+
+    <!-- Notifikasi -->
+    <string name="notif_channel_name">Progres render</string>
+    <string name="notif_channel_desc">Progres video yang sedang dirender di server</string>
+    <string name="notif_title">Merender video</string>
+    <string name="notif_text">%1$d tugas berjalan · %2$d%%</string>
+    <string name="notif_done_title">Video siap</string>
+    <string name="notif_done_text">Tugas %1$s selesai</string>
+    <string name="notif_failed_title">Render gagal</string>
+    <string name="notif_failed_text">Tugas %1$s gagal</string>
+</resources>

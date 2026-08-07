@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MoneyPrinter Mobile</string>
+
+    <!-- Navigation -->
+    <string name="nav_create">Create</string>
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_back">Back</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_show">Show</string>
+    <string name="action_hide">Hide</string>
+    <string name="msg_saved">Saved</string>
+    <string name="msg_no_server">Set your MoneyPrinterTurbo server address in Settings first.</string>
+
+    <!-- Create screen -->
+    <string name="create_title">New video</string>
+    <string name="section_content">Content</string>
+    <string name="section_video">Video</string>
+    <string name="section_voice">Voice</string>
+    <string name="section_music">Background music</string>
+    <string name="section_subtitle">Subtitles</string>
+    <string name="section_advanced">Advanced</string>
+
+    <string name="label_subject">Subject</string>
+    <string name="hint_subject">e.g. 5 morning habits that change your life</string>
+    <string name="label_script">Script</string>
+    <string name="hint_script">Leave empty to let the AI write it</string>
+    <string name="label_terms">Search keywords</string>
+    <string name="hint_terms">English keywords, comma separated</string>
+    <string name="label_script_prompt">Extra instruction for the AI</string>
+    <string name="hint_script_prompt">e.g. casual tone, end with a question</string>
+    <string name="label_language">Script language</string>
+    <string name="language_auto">Follow the subject</string>
+    <string name="label_paragraphs">Number of paragraphs</string>
+
+    <string name="action_generate_script">Write script with AI</string>
+    <string name="action_generate_terms">Generate keywords</string>
+    <string name="msg_generating">Generating…</string>
+    <string name="msg_subject_required">Fill in the subject first.</string>
+    <string name="msg_script_required">There is no script to generate keywords from.</string>
+
+    <string name="label_aspect">Aspect ratio</string>
+    <string name="label_concat_mode">Clip order</string>
+    <string name="concat_random">Random</string>
+    <string name="concat_sequential">Sequential</string>
+    <string name="label_transition">Transition</string>
+    <string name="transition_none">None</string>
+    <string name="transition_shuffle">Shuffle</string>
+    <string name="transition_fade_in">Fade in</string>
+    <string name="transition_fade_out">Fade out</string>
+    <string name="transition_slide_in">Slide in</string>
+    <string name="transition_slide_out">Slide out</string>
+    <string name="transition_zoom_in">Zoom in</string>
+    <string name="transition_zoom_out">Zoom out</string>
+    <string name="label_clip_duration">Max clip duration (seconds)</string>
+    <string name="label_clip_speed">Clip speed</string>
+    <string name="label_video_count">Videos to generate</string>
+    <string name="label_video_source">Footage source</string>
+    <string name="label_match_materials">Match footage to the script</string>
+    <string name="label_threads">Encoding threads</string>
+
+    <string name="label_voice">Voice</string>
+    <string name="label_voice_volume">Voice volume</string>
+    <string name="label_voice_rate">Speech rate</string>
+
+    <string name="label_bgm_type">Music</string>
+    <string name="bgm_random">Random</string>
+    <string name="bgm_none">No music</string>
+    <string name="bgm_custom">Pick from server</string>
+    <string name="label_bgm_file">Music file</string>
+    <string name="label_bgm_volume">Music volume</string>
+
+    <string name="label_subtitle_enabled">Burn in subtitles</string>
+    <string name="label_subtitle_position">Position</string>
+    <string name="subtitle_top">Top</string>
+    <string name="subtitle_center">Center</string>
+    <string name="subtitle_bottom">Bottom</string>
+    <string name="subtitle_custom">Custom</string>
+    <string name="label_custom_position">Vertical position (%)</string>
+    <string name="label_font_name">Font file on the server</string>
+    <string name="label_font_size">Font size</string>
+    <string name="label_text_color">Text color</string>
+    <string name="label_stroke_color">Outline color</string>
+    <string name="label_stroke_width">Outline width</string>
+    <string name="label_text_background">Text background</string>
+    <string name="label_rounded_background">Rounded background corners</string>
+
+    <string name="action_start">Generate video</string>
+    <string name="action_reset">Reset form</string>
+    <string name="msg_task_created">Task queued. Tracking progress under Tasks.</string>
+
+    <!-- Tasks -->
+    <string name="tasks_title">Tasks</string>
+    <string name="tasks_empty">No tasks yet. Create your first video.</string>
+    <string name="state_processing">Processing</string>
+    <string name="state_complete">Done</string>
+    <string name="state_failed">Failed</string>
+    <string name="state_unknown">Unknown</string>
+    <string name="label_progress">Progress</string>
+    <string name="action_delete">Delete</string>
+    <string name="confirm_delete_title">Delete this task?</string>
+    <string name="confirm_delete_msg">The task and its files are removed from the server. This cannot be undone.</string>
+
+    <!-- Task detail -->
+    <string name="task_detail_title">Task detail</string>
+    <string name="label_task_id">Task ID</string>
+    <string name="label_state">Status</string>
+    <string name="label_videos">Results</string>
+    <string name="label_error">Error</string>
+    <string name="label_failed_stage">Failed at</string>
+    <string name="action_play">Play</string>
+    <string name="action_download">Download</string>
+    <string name="action_share">Share</string>
+    <string name="msg_download_started">Download started</string>
+    <string name="msg_download_failed">Download failed</string>
+    <string name="video_index">Video %1$d</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="tab_server">Server</string>
+    <string name="tab_ai">AI</string>
+    <string name="tab_defaults">Defaults</string>
+
+    <string name="label_server_url">Server address</string>
+    <string name="hint_server_url">http://192.168.1.10:8080</string>
+    <string name="server_url_help">Address of your own MoneyPrinterTurbo instance. The app appends /api/v1 itself.</string>
+    <string name="label_server_api_key">Server API key</string>
+    <string name="hint_server_api_key">Leave empty if the server has no api_key</string>
+    <string name="server_api_key_help">Sent as the x-api-key header, matching app.api_key in config.toml.</string>
+    <string name="action_test_connection">Test connection</string>
+    <string name="msg_test_ok">Connected. Server responded normally.</string>
+    <string name="msg_test_failed">Could not connect: %1$s</string>
+
+    <string name="label_ai_mode">Where does the AI run?</string>
+    <string name="ai_mode_server">Use the server\'s AI</string>
+    <string name="ai_mode_server_desc">Scripts and keywords are generated by the API key already configured on your server.</string>
+    <string name="ai_mode_device">Use my own API key</string>
+    <string name="ai_mode_device_desc">The app calls the AI provider directly from this phone. The key is encrypted on the device and never sent to the server.</string>
+    <string name="label_ai_provider">Provider</string>
+    <string name="label_ai_api_key">API key</string>
+    <string name="label_ai_base_url">Base URL</string>
+    <string name="label_ai_model">Model</string>
+    <string name="action_test_ai">Test AI key</string>
+    <string name="msg_ai_test_ok">AI key works. Reply: %1$s</string>
+    <string name="ai_key_help">Stored encrypted with the Android keystore, on this device only.</string>
+
+    <string name="defaults_help">These values pre-fill every new video form.</string>
+
+    <!-- Notification -->
+    <string name="notif_channel_name">Render progress</string>
+    <string name="notif_channel_desc">Progress of videos being rendered on the server</string>
+    <string name="notif_title">Rendering video</string>
+    <string name="notif_text">%1$d task(s) running · %2$d%%</string>
+    <string name="notif_done_title">Video ready</string>
+    <string name="notif_done_text">Task %1$s finished</string>
+    <string name="notif_failed_title">Render failed</string>
+    <string name="notif_failed_text">Task %1$s failed</string>
+</resources>
