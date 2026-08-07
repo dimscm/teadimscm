@@ -105,6 +105,9 @@ uvicorn==0.32.1
 openai==2.24.0
 loguru==0.7.3
 redis==5.2.0
+# Dipakai app/config/config.py tapi tidak tercantum di requirements.txt bawaan:
+# selama ini ikut terbawa sebagai dependency streamlit, yang di sini dibuang.
+toml==0.10.2
 python-multipart==0.0.27
 pyyaml==6.0.3
 requests==2.33.1
