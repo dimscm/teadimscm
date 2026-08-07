@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -97,6 +98,8 @@ class LlmClient(
         val payload = buildJsonObject {
             put("model", config.effectiveModel)
             put("temperature", 0.9)
+            // Gateways in front of several models often stream by default.
+            put("stream", false)
             putJsonArray("messages") {
                 addJsonObject {
                     put("role", "system")
@@ -117,12 +120,43 @@ class LlmClient(
         }
 
         val body = execute(builder.build())
+        parseEventStream(body)?.let { return it }
+
         val root = json.parseToJsonElement(body).jsonObject
         root["error"]?.let { throw LlmException(errorMessage(it)) }
         val message = root["choices"]?.jsonArray?.firstOrNull()
             ?.jsonObject?.get("message")?.jsonObject
             ?: throw LlmException("The provider returned no choices")
         return message["content"]?.jsonPrimitive?.content.orEmpty()
+    }
+
+    /**
+     * Reassembles a Server-Sent Events reply into the full message.
+     *
+     * Some OpenAI-compatible gateways stream even when the request did not ask them to, answering
+     * with `data: {...}` lines instead of one JSON object. Returns null for an ordinary body.
+     */
+    private fun parseEventStream(body: String): String? {
+        if (!body.trimStart().startsWith("data:")) return null
+
+        val text = StringBuilder()
+        body.lineSequence().forEach { line ->
+            val payload = line.trim().removePrefix("data:").trim()
+            if (payload.isEmpty() || payload == "[DONE]") return@forEach
+            runCatching {
+                val choice = json.parseToJsonElement(payload)
+                    .jsonObject["choices"]?.jsonArray?.firstOrNull()?.jsonObject
+                    ?: return@runCatching
+                // Streaming chunks carry "delta"; a final non-streamed event carries "message".
+                val piece = choice["delta"]?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
+                    ?: choice["message"]?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
+                text.append(piece.orEmpty())
+            }
+        }
+
+        return text.toString().ifBlank {
+            throw LlmException("The provider streamed a reply with no content")
+        }
     }
 
     private fun callGemini(config: LlmConfig, system: String, user: String): String {
