@@ -17,7 +17,26 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        // A checked-in debug key, so every build signs identically and a new APK
+        // installs over the previous one instead of being rejected for a signature
+        // mismatch. CI machines are ephemeral and would otherwise generate a fresh
+        // key each run. It carries the same well-known credentials as the debug
+        // keystore the Android tools generate, and is for sideloading only -- never
+        // use it to sign a release.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
