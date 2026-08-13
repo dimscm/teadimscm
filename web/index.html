@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Master Agustus</title>
+<meta name="description" content="Penelusur target dan realisasi outlet per produk, salesman, dan rayon.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>Master Agustus</h1>
+      <span class="sub">Target &amp; Realisasi W31–W34</span>
+      <span class="spacer"></span>
+      <button class="icon-btn" id="export" type="button">Unduh CSV</button>
+    </div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Produk"></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="filters">
+    <div class="field">
+      <label for="f-q">Cari outlet</label>
+      <input id="f-q" type="search" placeholder="Nama outlet, nomor outlet, atau alamat…" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="f-sales">Salesman</label>
+      <select id="f-sales"><option value="">Semua salesman</option></select>
+    </div>
+    <div class="field">
+      <label for="f-rayon">Rayon</label>
+      <select id="f-rayon"><option value="">Semua rayon</option></select>
+    </div>
+    <div class="field" id="f-zona-wrap">
+      <label for="f-zona" id="f-zona-label">Zona</label>
+      <select id="f-zona"><option value="">Semua zona</option></select>
+    </div>
+    <div class="field">
+      <label for="f-status">Status</label>
+      <select id="f-status">
+        <option value="">Semua status</option>
+        <option value="nol">Belum ada order</option>
+        <option value="rendah">ACH di bawah 50%</option>
+        <option value="sedang">ACH 50–99%</option>
+        <option value="tercapai">ACH 100% ke atas</option>
+      </select>
+    </div>
+    <div class="field end">
+      <button id="reset" type="button">Reset</button>
+    </div>
+  </div>
+
+  <section class="cards" id="summary" aria-label="Ringkasan"></section>
+
+  <div class="controls">
+    <div class="seg" id="views">
+      <button type="button" data-view="outlet" aria-pressed="true">Outlet</button>
+      <button type="button" data-view="sales" aria-pressed="false">Per Salesman</button>
+      <button type="button" data-view="rayon" aria-pressed="false">Per Rayon</button>
+    </div>
+    <div class="field" id="sort-wrap">
+      <select id="f-sort" aria-label="Urutkan">
+        <option value="kurang">Kekurangan terbesar</option>
+        <option value="achAsc">ACH terendah</option>
+        <option value="achDesc">ACH tertinggi</option>
+        <option value="totalDesc">Realisasi terbesar</option>
+        <option value="tgtDesc">Target terbesar</option>
+        <option value="nama">Nama outlet A–Z</option>
+        <option value="sales">Salesman A–Z</option>
+      </select>
+    </div>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div id="list"></div>
+
+  <p class="foot">Sumber: MASTER_AGUSTUS.xlsx — tiap sheet satu produk. Klik outlet untuk melihat riwayat penjualan.</p>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="detail" role="dialog" aria-modal="true" aria-label="Detail outlet" hidden></aside>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
