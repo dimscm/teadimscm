@@ -389,8 +389,19 @@
     }).join("");
   }
 
+  /* Sales perlu tahu data ini seumur apa sebelum memakainya di lapangan. */
+  function stampData() {
+    if (!DATA.tanggal) return;
+    var bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli",
+      "Agustus", "September", "Oktober", "November", "Desember"];
+    var d = DATA.tanggal.split("-");
+    $("#stamp").textContent = "Data per " + Number(d[2]) + " " + bulan[Number(d[1]) - 1] + " " + d[0] +
+      (DATA.sumber ? ", dari " + DATA.sumber : "") + ".";
+  }
+
   function init() {
     buildTabs();
+    stampData();
 
     $("#tabs").addEventListener("click", function (e) {
       var b = e.target.closest(".tab");

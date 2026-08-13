@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Master Agustus</title>
 <meta name="description" content="Penelusur target dan realisasi outlet per produk, salesman, dan rayon.">
+<meta name="theme-color" content="#2f6b4f">
+<meta name="color-scheme" content="light dark">
+<!-- Ikon ditulis inline supaya halaman tetap satu berkas dan enak dipasang
+     di layar depan HP lewat "Add to Home Screen". -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%232f6b4f'/><text y='.9em' x='50' text-anchor='middle' font-size='62'>🍵</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%232f6b4f'/><text y='.9em' x='50' text-anchor='middle' font-size='62'>🍵</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -79,7 +85,7 @@
 
   <div id="list"></div>
 
-  <p class="foot">Sumber: MASTER_AGUSTUS.xlsx — tiap sheet satu produk. Klik outlet untuk melihat riwayat penjualan.</p>
+  <p class="foot"><span id="stamp"></span> Tiap sheet di Excel adalah satu produk. Klik outlet untuk melihat riwayat penjualan.</p>
 </main>
 
 <div class="scrim" id="scrim" hidden></div>

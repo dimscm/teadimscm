@@ -10,7 +10,9 @@ Pakai:  python3 web/tools/build_data.py MASTER_AGUSTUS.xlsx
 """
 
 import json
+import re
 import sys
+from datetime import date
 from pathlib import Path
 
 import openpyxl
@@ -158,7 +160,14 @@ def build(xlsx_path):
             }
         )
         print(f"  {cfg['label']:<14} {len(rows):>4} outlet")
-    return {"weekLabels": WEEK_LABELS, "products": products}
+    return {
+        "weekLabels": WEEK_LABELS,
+        # Berkas unggahan kadang diberi awalan acak; yang perlu dilihat orang
+        # cuma nama aslinya.
+        "sumber": re.sub(r"^[0-9a-f]{6,}-", "", Path(xlsx_path).name),
+        "tanggal": date.today().isoformat(),
+        "products": products,
+    }
 
 
 def main():
