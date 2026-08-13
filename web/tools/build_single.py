@@ -2,11 +2,16 @@
 """Gabungkan index.html + styles.css + app.js + data.js jadi satu berkas HTML.
 
 Berguna untuk dikirim lewat WhatsApp/email atau dibuka langsung dari HP tanpa
-server. Hasilnya di web/dist/master-agustus.html.
+server. Hasilnya ditulis ke dua tempat:
+
+  web/dist/master-agustus.html  berkas siap kirim
+  docs/index.html               yang dilayani GitHub Pages mode "deploy from a
+                                branch" dengan folder /docs
 
 Pakai:  python3 web/tools/build_single.py [--body-only]
         --body-only  buang <!doctype>/<html>/<head>/<body> (untuk host yang
-                     sudah menyediakan kerangka halaman sendiri)
+                     sudah menyediakan kerangka halaman sendiri) dan jangan
+                     sentuh docs/
 """
 
 import re
@@ -43,6 +48,17 @@ def main():
     out.parent.mkdir(exist_ok=True)
     out.write_text(html, encoding="utf-8")
     print(f"-> {out.relative_to(ROOT.parent)} ({out.stat().st_size // 1024} KB)")
+
+    if body_only:
+        return
+
+    # Satu berkas mandiri juga dipakai sebagai isi situs, supaya GitHub Pages
+    # bisa melayaninya langsung dari folder /docs tanpa perlu GitHub Actions.
+    docs = ROOT.parent / "docs"
+    docs.mkdir(exist_ok=True)
+    (docs / "index.html").write_text(html, encoding="utf-8")
+    (docs / ".nojekyll").write_text("", encoding="utf-8")
+    print("-> docs/index.html")
 
 
 if __name__ == "__main__":

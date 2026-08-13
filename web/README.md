@@ -29,6 +29,29 @@ Berkas satu-file di `dist/master-agustus.html` isinya sama persis tetapi CSS,
 JavaScript, dan datanya sudah digabung jadi satu, jadi enak dikirim lewat
 WhatsApp/email atau disimpan di HP.
 
+## Menerbitkan supaya bisa dibuka sales
+
+Ada dua jalur, dan keduanya menyajikan isi yang sama.
+
+**1. GitHub Pages tanpa Actions (paling cepat).** `build_single.py` sekaligus
+menulis `docs/index.html` di akar repo. Di GitHub: **Settings → Pages → Build
+and deployment → Source: Deploy from a branch**, pilih branch yang memuat
+folder `docs`, lalu folder **/docs**, dan **Save**. Beberapa menit kemudian
+situsnya hidup di `https://dimscm.github.io/teadimscm/`. Cara ini tidak
+memakai GitHub Actions sama sekali.
+
+**2. GitHub Pages lewat Actions.** `.github/workflows/pages.yml` mengunggah
+seluruh folder `web/` setiap kali ada perubahan. Jalur ini butuh GitHub
+Actions aktif; kalau akunnya sedang terkunci karena billing, semua job ditolak
+sebelum jalan dan deploy tidak pernah terjadi. Pakai jalur 1 selama itu belum
+beres.
+
+> Situs GitHub Pages di repo publik bisa dibuka siapa saja yang tahu
+> tautannya, tanpa login. Isi halaman ini adalah data outlet, nama salesman,
+> alamat, dan target penjualan. Kalau itu tidak boleh terbuka ke luar,
+> sebaiknya repo dipindah ke privat (Pages privat butuh paket berbayar) atau
+> cukup kirim `dist/master-agustus.html` langsung ke tim.
+
 ## Memperbarui data bulan berikutnya
 
 ```bash
