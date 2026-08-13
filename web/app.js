@@ -328,10 +328,34 @@
       }).join(";");
     }).join("\r\n");
 
-    var blob = new Blob(["﻿" + lines], { type: "text/csv;charset=utf-8;" });
+    saveFile("master-agustus.csv", "﻿" + lines);
+  }
+
+  /* Di dalam viewer claude.ai, berkas hanya bisa disimpan lewat
+     window.claude.downloads; di browser biasa pakai tautan blob. */
+  function saveFile(name, text) {
+    var dl = window.claude && window.claude.downloads;
+    if (dl) {
+      dl.save({ filename: name, data: text })
+        .catch(function (err) {
+          var code = err && err.code;
+          if (code === "declined") return;
+          if (code === "extension_not_enabled" || code === "rejected_extension") {
+            return dl.save({ filename: name.replace(/\.csv$/, ".txt"), data: text })
+              .catch(function (e) { if (e && e.code !== "declined") saveViaLink(name, text); });
+          }
+          saveViaLink(name, text);
+        });
+      return;
+    }
+    saveViaLink(name, text);
+  }
+
+  function saveViaLink(name, text) {
+    var blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "master-agustus.csv";
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
