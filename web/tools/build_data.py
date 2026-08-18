@@ -102,11 +102,22 @@ def text(value):
 
 def read_sheet(ws, cfg):
     rows = []
-    for raw in ws.iter_rows(min_row=cfg["first_row"], values_only=True):
+    seen = {}
+    for nomor, raw in enumerate(ws.iter_rows(min_row=cfg["first_row"], values_only=True),
+                                start=cfg["first_row"]):
         outlet_no = num(raw[2])
         name = text(raw[3])
         if outlet_no is None or not name:
             continue  # baris kosong / pemisah
+
+        # Outlet kembar ikut ditampilkan apa adanya supaya web tetap cerminan
+        # master, tapi tetap dilaporkan karena angkanya terhitung dua kali.
+        kunci = (int(outlet_no), name)
+        if kunci in seen:
+            print(f"  ! {ws.title}: '{name}' ({int(outlet_no)}) muncul dua kali, "
+                  f"baris {seen[kunci]} dan {nomor}")
+        else:
+            seen[kunci] = nomor
 
         weeks = [num(raw[i]) for i in cfg["weeks"]]
         total = sum(w for w in weeks if w)
