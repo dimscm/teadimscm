@@ -1,10 +1,12 @@
-/* Master Agustus — penelusur target & realisasi outlet.
-   Data dari window.MASTER_DATA (dibuat tools/build_data.py dari MASTER_AGUSTUS.xlsx). */
+/* Master Target Outlet — penelusur target & realisasi outlet.
+   Data dari window.MASTER_DATA (dibuat tools/build_data.py dari workbook target). */
 (function () {
   "use strict";
 
   var DATA = window.MASTER_DATA || { products: [], weekLabels: [] };
-  var WEEKS = DATA.weekLabels || ["W31", "W32", "W33", "W34"];
+  var WEEKS = DATA.weekLabels || [];
+  var LABELS = DATA.labels || {};
+  var LBL_WILAYAH = LABELS.wilayah || "Wilayah";
 
   /* Satu baris = satu outlet pada satu produk. */
   var ROWS = [];
@@ -16,7 +18,8 @@
       r.uid = p.id + "#" + i;
       r.ach = r.tgt > 0 ? r.total / r.tgt : null;
       r.kurang = Math.max(r.tgt - r.total, 0);
-      r.cari = (r.nama + " " + r.no + " " + r.alamat + " " + r.sales + " " + r.rayon).toLowerCase();
+      r.cari = (r.nama + " " + r.no + " " + r.alamat + " " + r.sales + " " +
+        r.wilayah + " " + (r.tipe || "")).toLowerCase();
       ROWS.push(r);
     });
   });
@@ -25,8 +28,9 @@
     produk: "all",
     q: "",
     sales: "",
-    rayon: "",
+    wilayah: "",
     zona: "",
+    tipe: "",
     status: "",
     view: "outlet",
     sort: "kurang"
@@ -78,8 +82,9 @@
      agar isinya selalu kombinasi yang masih ada datanya. */
   function matches(r, skip) {
     if (skip !== "sales" && state.sales && r.sales !== state.sales) return false;
-    if (skip !== "rayon" && state.rayon && r.rayon !== state.rayon) return false;
+    if (skip !== "wilayah" && state.wilayah && r.wilayah !== state.wilayah) return false;
     if (skip !== "zona" && state.zona && r.zona !== state.zona) return false;
+    if (skip !== "tipe" && state.tipe && r.tipe !== state.tipe) return false;
     if (skip !== "status" && state.status && statusOf(r) !== state.status) return false;
 
     var terms = state.q.trim().toLowerCase().split(/\s+/);
@@ -100,7 +105,7 @@
     totalDesc: function (a, b) { return b.total - a.total; },
     tgtDesc: function (a, b) { return b.tgt - a.tgt; },
     nama: function (a, b) { return a.nama.localeCompare(b.nama); },
-    sales: function (a, b) { return a.sales.localeCompare(b.sales) || a.rayon.localeCompare(b.rayon); }
+    sales: function (a, b) { return a.sales.localeCompare(b.sales) || a.wilayah.localeCompare(b.wilayah); }
   };
 
   /* ── Isi dropdown mengikuti produk yang dipilih ───────────────────── */
@@ -125,19 +130,22 @@
 
   function syncSelects() {
     state.sales = fillSelect($("#f-sales"), optionsFor("sales"), state.sales);
-    state.rayon = fillSelect($("#f-rayon"), optionsFor("rayon"), state.rayon);
 
-    var zonas = optionsFor("zona");
-    var zwrap = $("#f-zona-wrap");
-    if (zonas.length) {
-      zwrap.hidden = false;
-      var labels = {};
-      byProduct().forEach(function (r) { if (r.zonaLabel) labels[r.zonaLabel] = 1; });
-      $("#f-zona-label").textContent = Object.keys(labels).join(" / ") || "Zona";
-      state.zona = fillSelect($("#f-zona"), zonas, state.zona);
-    } else {
-      zwrap.hidden = true;
-      state.zona = "";
+    // Filter yang cuma punya satu nilai tidak menyaring apa pun — sembunyikan
+    // saja supaya baris filter tidak penuh, terutama di layar HP.
+    ["wilayah", "zona", "tipe"].forEach(function (key) {
+      var nilai = optionsFor(key);
+      var cukup = nilai.length > 1;
+      $("#f-" + key + "-wrap").hidden = !cukup;
+      state[key] = cukup ? fillSelect($("#f-" + key), nilai, state[key]) : "";
+    });
+
+    $("#view-wilayah").hidden = uniq(byProduct(), "wilayah").length < 2;
+    if ($("#view-wilayah").hidden && state.view === "wilayah") {
+      state.view = "outlet";
+      Array.prototype.forEach.call($("#views").children, function (t) {
+        t.setAttribute("aria-pressed", String(t.dataset.view === "outlet"));
+      });
     }
   }
 
@@ -160,7 +168,7 @@
     var w = t.ach === null ? 0 : Math.min(t.ach, 1) * 100;
     $("#summary").innerHTML =
       card("Outlet", fmt(t.n), t.nol + " belum order") +
-      card("Target", fmt(t.tgt), "Agustus (W31–W34)") +
+      card("Target", fmt(t.tgt), periodeSingkat()) +
       card("Realisasi", fmt(t.tot), t.ok + " outlet tercapai") +
       card("Kekurangan", fmt(t.kur), "sisa ke target") +
       '<div class="card ach"><div class="k">Achievement</div><div class="v num">' + pct(t.ach) +
@@ -176,8 +184,8 @@
   function renderOutlets(rows) {
     if (!rows.length) return empty();
 
-    var head = '<div class="tr head"><div>Outlet</div><div>Salesman</div><div>Rayon</div>' +
-      '<div class="r">Target</div><div class="r">Realisasi</div><div class="r">Kurang</div>' +
+    var head = '<div class="tr head"><div>Outlet</div><div>Salesman</div><div>' + esc(LBL_WILAYAH) +
+      '</div><div class="r">Target</div><div class="r">Realisasi</div><div class="r">Kurang</div>' +
       '<div class="weeks">' + WEEKS.map(function (w) { return "<span>" + w + "</span>"; }).join("") +
       '</div><div class="r">ACH</div></div>';
 
@@ -190,9 +198,10 @@
         '<div class="c-outlet"><div class="outlet-name">' + esc(r.nama) + '</div>' +
         '<div class="outlet-meta">' +
         (state.produk === "all" ? '<span class="chip">' + esc(r.produk) + "</span>" : "") +
+        (r.tipe ? '<span class="chip">' + esc(r.tipe) + "</span>" : "") +
         '<span class="no">' + r.no + "</span> · " + esc(r.alamat || "-") + "</div></div>" +
         '<div class="c-sales">' + esc(r.sales) + "</div>" +
-        '<div class="c-rayon">' + esc(r.rayon) + "</div>" +
+        '<div class="c-wilayah">' + esc(r.wilayah) + "</div>" +
         '<div class="c-tgt r num"><span class="mlabel">Target </span>' + fmt(r.tgt) + "</div>" +
         '<div class="c-tot r num"><span class="mlabel">Realisasi </span>' + fmt(r.total) + "</div>" +
         '<div class="c-kur r num"><span class="mlabel">Kurang </span>' + fmt(r.kurang) + "</div>" +
@@ -204,7 +213,7 @@
     return '<div class="tbl">' + head + body + "</div>";
   }
 
-  /* ── Rekap per salesman / rayon ───────────────────────────────────── */
+  /* ── Rekap per salesman / wilayah ─────────────────────────────────── */
   function renderGroups(rows, key) {
     if (!rows.length) return empty();
 
@@ -221,7 +230,7 @@
       return t;
     }).sort(function (a, b) { return b.kur - a.kur; });
 
-    var head = '<div class="grp head"><div>' + (key === "sales" ? "Salesman" : "Rayon") +
+    var head = '<div class="grp head"><div>' + esc(key === "sales" ? "Salesman" : LBL_WILAYAH) +
       '</div><div class="r">Outlet</div><div class="r">Target</div><div class="r">Realisasi</div>' +
       '<div class="r">Kurang</div><div>Progres</div><div class="r">ACH</div></div>';
 
@@ -267,7 +276,9 @@
     }).join("");
 
     var extra = "";
+    if (r.tipe) extra += kv("Tipe outlet", esc(r.tipe));
     if (r.zona) extra += kv(r.zonaLabel || "Zona", esc(r.zona));
+    if (r.spk) extra += kv("Status SPK", esc(r.spk));
     if (r.up !== null && r.up !== undefined) extra += kv("Up target", pct(r.up));
     if (r.tgtWeek) extra += kv("Target / week", fmt(r.tgtWeek));
     if (r.ebs) {
@@ -283,8 +294,8 @@
       kv("Produk", esc(r.produk)) +
       kv("No outlet", r.no) +
       kv("Salesman", esc(r.sales)) +
-      kv("Rayon", esc(r.rayon)) +
-      kv("Target Agustus", fmt(r.tgt)) +
+      kv(LBL_WILAYAH, esc(r.wilayah)) +
+      kv("Target", fmt(r.tgt)) +
       kv("Realisasi", fmt(r.total)) +
       kv("Kekurangan", fmt(r.kurang)) +
       '<div><div class="k">Achievement</div><div class="v"><span class="pill ' + achClass(r.ach) +
@@ -314,11 +325,11 @@
   /* ── Ekspor CSV sesuai filter aktif ───────────────────────────────── */
   function exportCsv() {
     var rows = filtered().sort(SORTS[state.sort]);
-    var head = ["Produk", "Salesman", "Rayon", "No Outlet", "Nama Outlet", "Alamat", "Zona",
-      "Target"].concat(WEEKS, ["Realisasi", "Kekurangan", "ACH %"]);
+    var head = ["Produk", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet", "Alamat",
+      "Tipe Outlet", "Zona", "Target"].concat(WEEKS, ["Realisasi", "Kekurangan", "ACH %"]);
 
     var lines = [head].concat(rows.map(function (r) {
-      return [r.produk, r.sales, r.rayon, r.no, r.nama, r.alamat, r.zona, r.tgt]
+      return [r.produk, r.sales, r.wilayah, r.no, r.nama, r.alamat, r.tipe, r.zona, r.tgt]
         .concat(r.weeks.map(function (v) { return v === null ? "" : v; }),
           [r.total, r.kurang, r.ach === null ? "" : Math.round(r.ach * 100)]);
     })).map(function (cols) {
@@ -328,7 +339,7 @@
       }).join(";");
     }).join("\r\n");
 
-    saveFile("master-agustus.csv", "﻿" + lines);
+    saveFile(namaBerkas("csv"), "﻿" + lines);
   }
 
   /* Di dalam viewer claude.ai, berkas hanya bisa disimpan lewat
@@ -370,7 +381,7 @@
 
     var html;
     if (state.view === "sales") html = renderGroups(rows, "sales");
-    else if (state.view === "rayon") html = renderGroups(rows, "rayon");
+    else if (state.view === "wilayah") html = renderGroups(rows, "wilayah");
     else html = renderOutlets(rows.slice().sort(SORTS[state.sort]));
 
     $("#list").innerHTML = html;
@@ -389,6 +400,17 @@
     }).join("");
   }
 
+  /* master-target-september-2026.csv — namanya ikut periode datanya. */
+  function namaBerkas(ext) {
+    var slug = (DATA.periode || "target").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    return "master-target-" + slug + "." + ext;
+  }
+
+  function periodeSingkat() {
+    var w = WEEKS.length ? WEEKS[0] + "–" + WEEKS[WEEKS.length - 1] : "";
+    return (DATA.periode || "") + (w ? " (" + w + ")" : "");
+  }
+
   /* Sales perlu tahu data ini seumur apa sebelum memakainya di lapangan. */
   function stampData() {
     if (!DATA.tanggal) return;
@@ -400,6 +422,14 @@
   }
 
   function init() {
+    // Jumlah minggu ikut workbook (Agustus 4 minggu, September 5), jadi lebar
+    // kolom mingguan diatur lewat variabel CSS, bukan angka tetap.
+    document.documentElement.style.setProperty("--nweek", WEEKS.length || 4);
+    $("#periode").textContent = periodeSingkat();
+    $("#f-wilayah-label").textContent = LBL_WILAYAH;
+    $("#f-wilayah").options[0].textContent = "Semua " + LBL_WILAYAH.toLowerCase();
+    $("#view-wilayah").textContent = "Per " + LBL_WILAYAH;
+
     buildTabs();
     stampData();
 
@@ -419,14 +449,14 @@
       timer = setTimeout(function () { state.q = q.value; render(); }, 120);
     });
 
-    ["sales", "rayon", "zona", "status"].forEach(function (k) {
+    ["sales", "wilayah", "zona", "tipe", "status"].forEach(function (k) {
       $("#f-" + k).addEventListener("change", function (e) { state[k] = e.target.value; render(); });
     });
 
     $("#f-sort").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
 
     $("#reset").addEventListener("click", function () {
-      state.q = state.sales = state.rayon = state.zona = state.status = "";
+      state.q = state.sales = state.wilayah = state.zona = state.tipe = state.status = "";
       q.value = "";
       $("#f-status").value = "";
       render();

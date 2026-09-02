@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Master Agustus</title>
-<meta name="description" content="Penelusur target dan realisasi outlet per produk, salesman, dan rayon.">
+<title>Master Target Outlet</title>
+<meta name="description" content="Penelusur target dan realisasi outlet per produk, salesman, dan subdist.">
 <meta name="theme-color" content="#2f6b4f">
 <meta name="color-scheme" content="light dark">
 <!-- Ikon ditulis inline supaya halaman tetap satu berkas dan enak dipasang
@@ -18,8 +18,8 @@
 <header class="top">
   <div class="top-in">
     <div class="brand">
-      <h1>Master Agustus</h1>
-      <span class="sub">Target &amp; Realisasi W31–W34</span>
+      <h1>Master Target Outlet</h1>
+      <span class="sub" id="periode"></span>
       <span class="spacer"></span>
       <button class="icon-btn" id="export" type="button">Unduh CSV</button>
     </div>
@@ -38,13 +38,17 @@
       <label for="f-sales">Salesman</label>
       <select id="f-sales"><option value="">Semua salesman</option></select>
     </div>
-    <div class="field">
-      <label for="f-rayon">Rayon</label>
-      <select id="f-rayon"><option value="">Semua rayon</option></select>
+    <div class="field" id="f-wilayah-wrap">
+      <label for="f-wilayah" id="f-wilayah-label">Subdist</label>
+      <select id="f-wilayah"><option value="">Semua subdist</option></select>
     </div>
     <div class="field" id="f-zona-wrap">
-      <label for="f-zona" id="f-zona-label">Zona</label>
+      <label for="f-zona">Zona</label>
       <select id="f-zona"><option value="">Semua zona</option></select>
+    </div>
+    <div class="field" id="f-tipe-wrap">
+      <label for="f-tipe">Tipe outlet</label>
+      <select id="f-tipe"><option value="">Semua tipe</option></select>
     </div>
     <div class="field">
       <label for="f-status">Status</label>
@@ -67,7 +71,7 @@
     <div class="seg" id="views">
       <button type="button" data-view="outlet" aria-pressed="true">Outlet</button>
       <button type="button" data-view="sales" aria-pressed="false">Per Salesman</button>
-      <button type="button" data-view="rayon" aria-pressed="false">Per Rayon</button>
+      <button type="button" data-view="wilayah" aria-pressed="false" id="view-wilayah">Per Subdist</button>
     </div>
     <div class="field" id="sort-wrap">
       <select id="f-sort" aria-label="Urutkan">

@@ -1,31 +1,40 @@
-# Master Agustus — web
+# Master Target Outlet — web
 
-Tampilan web untuk `MASTER_AGUSTUS.xlsx`. Tiap **sheet di Excel = satu produk**
-(Pucuk, LM 600, LM 1500+330, Nipis), dan tiap baris = satu outlet dengan target
-Agustus, realisasi mingguan W31–W34, kekurangan, serta achievement-nya.
+Tampilan web untuk workbook target bulanan. Tiap **sheet di Excel = satu
+produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
+mingguan, kekurangan, serta achievement-nya.
+
+Periode yang sedang tampil: **September 2026 (W35–W39)**, dari
+`target_september.xlsx`, 5 produk / 50 outlet.
+
+> Hanya baris yang **ada nama salesman**-nya yang diambil. Workbook target
+> memuat seluruh outlet se-region, termasuk milik subdist lain yang tidak
+> dipegang tim ini — baris tanpa salesman dilewati, dan jumlahnya dilaporkan
+> saat build.
 
 ## Yang bisa dilakukan
 
-- **Pilih produk** lewat tab di atas, atau **Semua Produk** untuk gabungan
-  keempatnya (292 outlet).
+- **Pilih produk** lewat tab di atas, atau **Semua Produk** untuk gabungannya.
 - **Cari outlet** dengan mengetik nama outlet, nomor outlet, atau alamat. Bisa
-  beberapa kata sekaligus, mis. `budi jaya` atau `2240607`.
-- **Filter** salesman, rayon, zona/paket, dan status pencapaian (belum ada
-  order, di bawah 50%, 50–99%, 100% ke atas). Isi tiap dropdown otomatis
-  menyesuaikan filter lain, jadi tidak pernah menghasilkan daftar kosong.
+  beberapa kata sekaligus, mis. `rifai agen` atau `2038524`.
+- **Filter** salesman, subdist, zona, tipe outlet (SO / GROMIN / GROSIR), dan
+  status pencapaian (belum ada order, di bawah 50%, 50–99%, 100% ke atas). Isi
+  tiap dropdown menyesuaikan filter lain, jadi tidak pernah menghasilkan
+  daftar kosong; filter yang isinya cuma satu nilai ikut disembunyikan.
 - **Ringkasan** jumlah outlet, target, realisasi, kekurangan, dan achievement
   ikut berubah mengikuti filter yang aktif.
-- **Rekap Per Salesman / Per Rayon** untuk melihat pencapaian tiap orang atau
-  tiap rayon.
-- **Klik satu outlet** untuk melihat detail: realisasi per minggu dan riwayat
-  penjualan (kuartal-kuartal sebelumnya, rata-rata per minggu, dasar target).
+- **Rekap Per Salesman / Per Subdist** untuk melihat pencapaian tiap orang
+  atau tiap subdist.
+- **Klik satu outlet** untuk melihat detail: realisasi per minggu, status SPK,
+  zona, dan riwayat omset (kuartal-kuartal sebelumnya, rata-rata per minggu,
+  acuan target). Untuk LM 1500+330, rincian per ukuran ikut ditampilkan.
 - **Unduh CSV** sesuai filter yang sedang aktif.
 
 ## Menjalankan
 
 Cukup buka `index.html` di browser — tidak perlu server, tidak perlu internet.
 
-Berkas satu-file di `dist/master-agustus.html` isinya sama persis tetapi CSS,
+Berkas satu-file di `dist/master-target.html` isinya sama persis tetapi CSS,
 JavaScript, dan datanya sudah digabung jadi satu, jadi enak dikirim lewat
 WhatsApp/email atau disimpan di HP.
 
@@ -50,24 +59,31 @@ beres.
 > tautannya, tanpa login. Isi halaman ini adalah data outlet, nama salesman,
 > alamat, dan target penjualan. Kalau itu tidak boleh terbuka ke luar,
 > sebaiknya repo dipindah ke privat (Pages privat butuh paket berbayar) atau
-> cukup kirim `dist/master-agustus.html` langsung ke tim.
+> cukup kirim `dist/master-target.html` langsung ke tim.
 
 ## Memperbarui data bulan berikutnya
 
 ```bash
-python3 web/tools/build_data.py MASTER_SEPTEMBER.xlsx   # tulis ulang web/data.js
-python3 web/tools/build_single.py                       # tulis ulang dist/
+python3 web/tools/build_data.py target_oktober.xlsx   # tulis ulang web/data.js
+python3 web/tools/build_single.py                     # tulis ulang dist/ + docs/
 ```
 
-`build_data.py` memetakan kolom tiap sheet lewat tabel `SHEETS` di bagian atas
-berkas. Kalau tata letak Excel-nya berubah (kolom bergeser atau ada sheet
-produk baru), sesuaikan indeks kolom di situ — indeksnya 0-based, jadi kolom A
-= 0, B = 1, dan seterusnya. Sheet yang belum terdaftar akan dilewati dengan
+Yang perlu disesuaikan di `build_data.py` tiap ganti bulan:
+
+| Bagian | Isi |
+|---|---|
+| `PERIODE` | mis. `"Oktober 2026"` — dipakai di judul dan nama berkas CSV |
+| `WEEK_LABELS` | minggu bulan itu, mis. `["W40", …]`. Jumlahnya bebas; lebar kolom di web ikut menyesuaikan |
+| `SHEETS` | nama sheet, label produk, baris awal data, dan indeks kolom target/minggu |
+
+Indeks kolomnya 0-based (kolom A = 0, B = 1, …), dan blok tiap bulan bergeser
+ke kanan di workbook yang sama — mis. di `LM 600` blok Juli mulai kolom 35,
+Agustus 51, September 67. Sheet yang belum terdaftar dilewati dengan
 peringatan, bukan bikin error.
 
-Angka realisasi, kekurangan, dan achievement dihitung ulang dari kolom W31–W34
-dan target, bukan disalin dari rumus Excel. Hasilnya sudah dicocokkan dengan
-seluruh 292 baris di workbook Agustus dan tidak ada selisih.
+Angka realisasi, kekurangan, dan achievement dihitung ulang dari kolom minggu
+dan kolom target, bukan disalin dari rumus Excel. Hasilnya dicocokkan ke
+seluruh baris workbook tiap kali data diperbarui.
 
 ## Isi berkas
 
@@ -78,4 +94,4 @@ seluruh 292 baris di workbook Agustus dan tidak ada selisih.
 | `app.js` | filter, pencarian, rekap, panel detail, ekspor CSV |
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
 | `tools/build_data.py` | Excel → `data.js` |
-| `tools/build_single.py` | gabung semuanya jadi satu berkas HTML |
+| `tools/build_single.py` | gabung semuanya jadi satu berkas HTML + `docs/index.html` |

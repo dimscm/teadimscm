@@ -4,7 +4,7 @@
 Berguna untuk dikirim lewat WhatsApp/email atau dibuka langsung dari HP tanpa
 server. Hasilnya ditulis ke dua tempat:
 
-  web/dist/master-agustus.html  berkas siap kirim
+  web/dist/master-target.html   berkas siap kirim
   docs/index.html               yang dilayani GitHub Pages mode "deploy from a
                                 branch" dengan folder /docs
 
@@ -44,7 +44,7 @@ def main():
         body = re.search(r"<body>(.*?)</body>", html, re.S).group(1)
         html = title + "\n" + style + "\n" + body.strip() + "\n"
 
-    out = ROOT / "dist" / ("master-agustus-body.html" if body_only else "master-agustus.html")
+    out = ROOT / "dist" / ("master-target-body.html" if body_only else "master-target.html")
     out.parent.mkdir(exist_ok=True)
     out.write_text(html, encoding="utf-8")
     print(f"-> {out.relative_to(ROOT.parent)} ({out.stat().st_size // 1024} KB)")
