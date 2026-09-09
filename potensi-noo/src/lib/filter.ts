@@ -1,5 +1,5 @@
 import { DIVISIONS, NO_DIVISION, type Dataset, type Filters, type ReferencePoint, type SortKey, type VisitRecord } from '../types'
-import { coverageMask } from './dataset'
+import { countDivisions, coverageMask } from './dataset'
 import { metres } from './geo'
 
 export interface FilterResult {
@@ -48,6 +48,7 @@ export function runFilter(
   const channels = idSet(filters.channels, data.channels)
   const kecamatan = idSet(filters.kecamatan, data.kecamatan)
   const kelurahan = idSet(filters.kelurahan, data.kelurahan)
+  const salesmen = idSet(filters.salesmen, data.salesmen)
   const divisions = filters.divisions.length
     ? new Set(filters.divisions.map((division) => DIVISIONS.indexOf(division)))
     : null
@@ -75,7 +76,13 @@ export function runFilter(
     if (channels && !channels.has(data.channelId[i])) continue
     if (kecamatan && !kecamatan.has(data.kecamatanId[i])) continue
     if (kelurahan && !kelurahan.has(data.kelurahanId[i])) continue
+    if (salesmen && !salesmen.has(data.salesmanId[i])) continue
     if (filters.minOmzet > 0 && data.omzet[i] < filters.minOmzet) continue
+    if (filters.minDivisions > 1) {
+      // "Already trusted by N divisions" — the shops most worth the next visit.
+      if (!positioned) continue
+      if (countDivisions(coverageMask(data, i, radiusM)) < filters.minDivisions) continue
+    }
     if (query) {
       const name = data.names[data.nameId[i]].toUpperCase()
       if (!name.includes(query) && !String(data.codes[i]).includes(query)) {

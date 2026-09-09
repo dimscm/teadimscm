@@ -7,7 +7,6 @@ import NearbyPanel from './components/NearbyPanel'
 import Sidebar from './components/Sidebar'
 import ListView from './components/ListView'
 import Dashboard from './components/Dashboard'
-import FilterPanel from './components/FilterPanel'
 import DetailDrawer from './components/DetailDrawer'
 import SettingsSheet from './components/SettingsSheet'
 import UploadScreen from './components/UploadScreen'
@@ -26,7 +25,6 @@ export default function App() {
   const { status, data, result, reference, setSelected } = useApp()
   const [tab, setTab] = useState<Tab>('peta')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [replacing, setReplacing] = useState(false)
   const [pickHint, setPickHint] = useState(false)
@@ -113,7 +111,7 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-[360px] shrink-0 border-r border-slate-200 bg-white lg:block xl:w-[400px]">
-          <Sidebar onMoreFilters={() => setMoreOpen(true)} />
+          <Sidebar />
         </aside>
 
         <main className="relative min-h-0 min-w-0 flex-1">
@@ -151,17 +149,10 @@ export default function App() {
 
       <Sheet open={sidebarOpen} onClose={() => setSidebarOpen(false)} title="Filter & tanda" side="right">
         <div className="-mx-4 -mt-3">
-          <Sidebar
-            onOpenExport={() => setSidebarOpen(false)}
-            onMoreFilters={() => {
-              setSidebarOpen(false)
-              setMoreOpen(true)
-            }}
-          />
+          <Sidebar onOpenExport={() => setSidebarOpen(false)} />
         </div>
       </Sheet>
 
-      <FilterPanel open={moreOpen} onClose={() => setMoreOpen(false)} />
       <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} onReplaceData={() => setReplacing(true)} />
       <DetailDrawer />
     </div>

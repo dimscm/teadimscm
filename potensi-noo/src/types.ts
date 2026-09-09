@@ -103,7 +103,10 @@ export interface Filters {
   channels: string[]
   kecamatan: string[]
   kelurahan: string[]
+  salesmen: string[]
   minOmzet: number
+  /** Keep only shops already served by at least this many divisions. */
+  minDivisions: number
   /** Mark (not hide) stores none of these divisions serve yet. */
   highlightGapFor: Division[]
   /** Show only the marked stores. Off by default: every pin stays on the map. */
@@ -121,7 +124,9 @@ export const EMPTY_FILTERS: Filters = {
   channels: [],
   kecamatan: [],
   kelurahan: [],
+  salesmen: [],
   minOmzet: 0,
+  minDivisions: 0,
   highlightGapFor: ['M3'],
   onlyGap: false,
   groupByStore: true,
@@ -142,6 +147,13 @@ export const OMZET_STEPS: { limit: number; colour: string; label: string }[] = [
   { limit: 100e6, colour: '#0284c7', label: 'Rp 20–100 jt' },
   { limit: Infinity, colour: '#0c4a6e', label: '> Rp 100 jt' },
 ]
+
+export const OMZET_FLOORS = [
+  { value: 0, label: 'Semua' },
+  { value: 250_000, label: '≥ 250 rb' },
+  { value: 1e6, label: '≥ 1 jt' },
+  { value: 5e6, label: '≥ 5 jt' },
+] as const
 
 export const STATUS_COLOURS = {
   marked: '#f59e0b',

@@ -36,7 +36,7 @@ interface ClusterProps {
 const LETTER_ZOOM = 17
 
 export default function MapView() {
-  const { data, result, reference, setReference, selected, setSelected, preferences } = useApp()
+  const { data, result, reference, setReference, selected, setSelected, preferences, fitToken } = useApp()
   const mode = preferences.colourMode
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -45,6 +45,7 @@ export default function MapView() {
   const letterLayer = useRef<L.LayerGroup | null>(null)
   const referenceLayer = useRef<L.LayerGroup | null>(null)
   const fitted = useRef(false)
+  const lastFit = useRef(-1)
 
   const index = useMemo(() => {
     if (!data) return null
@@ -238,10 +239,13 @@ export default function MapView() {
     }
   }, [data, index, selected, setSelected, mode])
 
-  // Fit to the data once, the first time a dataset arrives.
+  // Frame the data the first time it arrives, and again whenever the user asks.
   useEffect(() => {
     const instance = map.current
-    if (!instance || !data || fitted.current) return
+    if (!instance || !data) return
+    // Refit only on a fresh dataset or a new request — never on every filter
+    // change, which would yank the map around while the user is reading it.
+    if (fitted.current && fitToken === lastFit.current) return
     if (result.count === 0) return
     const size = instance.getSize()
     if (size.x < 40 || size.y < 40) return
@@ -273,7 +277,8 @@ export default function MapView() {
       { padding: [24, 24] },
     )
     fitted.current = true
-  }, [data, result])
+    lastFit.current = fitToken
+  }, [data, result, fitToken])
 
   // The reference point and the selected outlet.
   useEffect(() => {

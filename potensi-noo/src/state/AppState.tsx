@@ -62,6 +62,9 @@ interface AppStateValue {
   removeVisit: (outletCode: number) => void
   ingest: (file: File) => void
   clearData: () => void
+  /** Bumped when something asks the map to frame the current result. */
+  fitToken: number
+  requestFit: () => void
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null)
@@ -76,6 +79,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [reference, setReference] = useState<ReferencePoint | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
   const [visits, setVisits] = useState<Map<number, VisitRecord>>(new Map())
+  const [fitToken, setFitToken] = useState(0)
   const worker = useRef<Worker | null>(null)
   const sync = useRef<SyncQueue | null>(null)
   if (sync.current === null && typeof window !== 'undefined') sync.current = new SyncQueue()
@@ -218,6 +222,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [preferences.salesName],
   )
 
+  const requestFit = useCallback(() => setFitToken((value) => value + 1), [])
+
   const removeVisit = useCallback((outletCode: number) => {
     setVisits((current) => {
       const next = new Map(current)
@@ -253,6 +259,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       removeVisit,
       ingest,
       clearData,
+      fitToken,
+      requestFit,
     }),
     [
       status,
@@ -272,6 +280,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       removeVisit,
       ingest,
       clearData,
+      fitToken,
+      requestFit,
     ],
   )
 

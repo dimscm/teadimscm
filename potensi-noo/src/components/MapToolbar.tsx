@@ -11,7 +11,7 @@ const MODES: { key: ColourMode; label: string; hint: string }[] = [
 
 /** The row of controls that floats over the map. */
 export default function MapToolbar({ onPickPoint }: { onPickPoint: () => void }) {
-  const { preferences, setPreferences, result, setReference } = useApp()
+  const { preferences, setPreferences, result, setReference, requestFit } = useApp()
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,6 +51,15 @@ export default function MapToolbar({ onPickPoint }: { onPickPoint: () => void })
         className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-md transition hover:bg-slate-50"
       >
         Pilih titik A
+      </button>
+
+      <button
+        type="button"
+        onClick={requestFit}
+        title="Perbesar peta ke outlet yang sedang tampil"
+        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-md transition hover:bg-slate-50"
+      >
+        Zoom ke hasil
       </button>
 
       <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-md">

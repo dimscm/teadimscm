@@ -62,6 +62,19 @@ berbeda.
 - **Menandai peluang bisa lebih dari satu divisi.** Kalau BIS dan M3 dipilih bersamaan, yang ditandai
   hanya toko yang belum digarap keduanya. Setiap divisi menampilkan jumlah tokonya sendiri, dan
   divisi tanpa koordinat (MUH) dimatikan supaya tidak memberi angka palsu.
+- **Penyaring di panel kiri** (semua bisa dipakai bersamaan):
+  - *Tampilkan divisi* — hanya divisi tertentu, dengan jumlah outletnya.
+  - *Sudah digarap minimal* — Semua / ≥2 / ≥3 / ≥4 divisi. Toko yang sudah dipercaya beberapa divisi
+    biasanya paling layak digarap divisi berikutnya.
+  - *Radius toleransi* — sebuah divisi dianggap sudah menggarap toko bila punya outlet dalam radius
+    ini, atau punya toko bernama sama di kelurahan yang sama. Mengubahnya langsung mengubah semua
+    angka “belum digarap”.
+  - *Channel, Kecamatan, Kelurahan, Salesman* — daftar centang yang bisa dicari, lengkap dengan
+    jumlah outlet per pilihan. Kelurahan otomatis mengikuti kecamatan yang dipilih.
+  - *Omzet 26 minggu* — Semua / ≥250 rb / ≥1 jt / ≥5 jt.
+  - *Tampilan* — gabungkan toko yang sama, ikutkan baris tanpa koordinat, dan saring toko yang sudah
+    atau belum dilaporkan sales.
+- **Zoom ke hasil** di atas peta memperbesar peta ke outlet yang sedang lolos filter.
 - **Ekspor** ada di kotak *Hasil* di panel kiri: file CSV berisi persis daftar yang sedang tampil,
   lengkap dengan kolom `DIVISI YANG SUDAH MASUK`, `DIVISI YANG BELUM`, `DITANDAI PELUANG`, dan
   `NAMA TOKO INI DI DIVISI LAIN` — bukti bahwa baris-baris itu satu toko fisik walau namanya berbeda.
