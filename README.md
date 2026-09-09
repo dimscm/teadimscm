@@ -1,3 +1,6 @@
+> **Isi repositori ini:** `potensi-noo/` — web Peta Potensi NOO (masukkan Excel, peta jadi
+> otomatis); sisanya adalah MoneyPrinter Mobile di bawah ini.
+
 # MoneyPrinter Mobile
 
 Aplikasi Android (Kotlin + Jetpack Compose) untuk mengendalikan
