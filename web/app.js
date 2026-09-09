@@ -19,6 +19,12 @@
       r.uid = p.id + "#" + i;
       r.ach = r.tgt > 0 ? r.total / r.tgt : null;
       r.kurang = Math.max(r.tgt - r.total, 0);
+      // Workbook memberi dua target: MID yang realistis dan MAX yang ambisius.
+      // MID dipakai sebagai angka utama, MAX selalu ikut ditampilkan.
+      r.tgtMx = r.tgtMax || r.tgt;
+      r.achMx = r.tgtMx > 0 ? r.total / r.tgtMx : null;
+      r.kurangMx = Math.max(r.tgtMx - r.total, 0);
+      r.duaTarget = r.tgtMx !== r.tgt;
       r.cari = (r.nama + " " + r.no + " " + r.alamat + " " + r.sales + " " +
         r.wilayah + " " + (r.tipe || "") + " " + (r.ket || "") + " " +
         (r.channel || "")).toLowerCase();
@@ -107,6 +113,8 @@
     achAsc: function (a, b) { return (a.ach === null ? -1 : a.ach) - (b.ach === null ? -1 : b.ach); },
     achDesc: function (a, b) { return (b.ach === null ? -1 : b.ach) - (a.ach === null ? -1 : a.ach); },
     totalDesc: function (a, b) { return b.total - a.total; },
+    kurangMax: function (a, b) { return b.kurangMx - a.kurangMx; },
+    achMaxAsc: function (a, b) { return (a.achMx === null ? -1 : a.achMx) - (b.achMx === null ? -1 : b.achMx); },
     tgtDesc: function (a, b) { return b.tgt - a.tgt; },
     nama: function (a, b) { return a.nama.localeCompare(b.nama); },
     sales: function (a, b) { return a.sales.localeCompare(b.sales) || a.wilayah.localeCompare(b.wilayah); }
@@ -155,15 +163,20 @@
 
   /* ── Ringkasan ────────────────────────────────────────────────────── */
   function totals(rows) {
-    var t = { n: rows.length, tgt: 0, tot: 0, kur: 0, nol: 0, ok: 0 };
+    var t = { n: rows.length, tgt: 0, tgtMx: 0, tot: 0, kur: 0, kurMx: 0, nol: 0, ok: 0, okMx: 0 };
     rows.forEach(function (r) {
       t.tgt += r.tgt;
+      t.tgtMx += r.tgtMx;
       t.tot += r.total;
       t.kur += r.kurang;
+      t.kurMx += r.kurangMx;
       if (r.total <= 0) t.nol++;
       if (r.ach !== null && r.ach >= 1) t.ok++;
+      if (r.achMx !== null && r.achMx >= 1) t.okMx++;
     });
     t.ach = t.tgt > 0 ? t.tot / t.tgt : null;
+    t.achMx = t.tgtMx > 0 ? t.tot / t.tgtMx : null;
+    t.duaTarget = Math.round(t.tgtMx) !== Math.round(t.tgt);
     return t;
   }
 
@@ -172,11 +185,14 @@
     var w = t.ach === null ? 0 : Math.min(t.ach, 1) * 100;
     $("#summary").innerHTML =
       card("Outlet", fmt(t.n), t.nol + " belum order") +
-      card("Target", fmt(t.tgt), periodeSingkat()) +
-      card("Realisasi", fmt(t.tot), t.ok + " outlet tercapai") +
-      card("Kekurangan", fmt(t.kur), "sisa ke target") +
+      card("Target MID", fmt(t.tgt), t.duaTarget ? "maks " + fmt(t.tgtMx) : periodeSingkat()) +
+      card("Realisasi", fmt(t.tot), t.duaTarget
+        ? t.ok + " capai MID · " + t.okMx + " capai maks"
+        : t.ok + " outlet tercapai") +
+      card("Kekurangan", fmt(t.kur), t.duaTarget ? "maks " + fmt(t.kurMx) : "sisa ke target") +
       '<div class="card ach"><div class="k">Achievement</div><div class="v num">' + pct(t.ach) +
-      '</div><div class="bar"><i style="width:' + w.toFixed(1) + '%"></i></div></div>';
+      '</div><div class="bar"><i style="width:' + w.toFixed(1) + '%"></i></div>' +
+      (t.duaTarget ? '<div class="m num">maks ' + pct(t.achMx) + "</div>" : "") + "</div>";
 
     // Galon dihitung per galon, produk lain per karton — kalau keduanya ikut
     // tersaring, angka gabungannya mencampur dua satuan.
@@ -196,13 +212,17 @@
     if (!rows.length) return empty();
 
     var head = '<div class="tr head"><div>Outlet</div><div>Salesman</div><div>' + esc(LBL_WILAYAH) +
-      '</div><div class="r">Target</div><div class="r">Realisasi</div><div class="r">Kurang</div>' +
+      '</div><div class="r">Target MID<br>/ maks</div><div class="r">Realisasi</div>' +
+      '<div class="r">Kurang MID<br>/ maks</div>' +
       '<div class="weeks">' + WEEKS.map(function (w) { return "<span>" + w + "</span>"; }).join("") +
-      '</div><div class="r">ACH</div></div>';
+      '</div><div class="r">ACH MID<br>/ maks</div></div>';
 
     var body = rows.map(function (r) {
-      var wk = r.weeks.map(function (v) {
-        return '<span class="' + (v ? "" : "zero") + '">' + (v ? fmt(v) : "–") + "</span>";
+      // data-w dipakai CSS untuk menempelkan nama minggu saat baris berubah
+      // jadi kartu di HP, di mana baris judul kolom tidak ikut tampil.
+      var wk = r.weeks.map(function (v, i) {
+        return '<span class="' + (v ? "" : "zero") + '" data-w="' + WEEKS[i] + '">' +
+          (v ? fmt(v) : "–") + "</span>";
       }).join("");
 
       return '<button class="tr" data-uid="' + esc(r.uid) + '">' +
@@ -213,11 +233,14 @@
         '<span class="no">' + r.no + "</span> · " + esc(r.alamat || "-") + "</div></div>" +
         '<div class="c-sales">' + esc(r.sales) + "</div>" +
         '<div class="c-wilayah">' + esc(r.wilayah) + "</div>" +
-        '<div class="c-tgt r num"><span class="mlabel">Target </span>' + fmt(r.tgt) + "</div>" +
+        '<div class="c-tgt r num"><span class="mlabel">Target </span>' + fmt(r.tgt) +
+        (r.duaTarget ? '<div class="sub2">maks ' + fmt(r.tgtMx) + "</div>" : "") + "</div>" +
         '<div class="c-tot r num"><span class="mlabel">Realisasi </span>' + fmt(r.total) + "</div>" +
-        '<div class="c-kur r num"><span class="mlabel">Kurang </span>' + fmt(r.kurang) + "</div>" +
+        '<div class="c-kur r num"><span class="mlabel">Kurang </span>' + fmt(r.kurang) +
+        (r.duaTarget ? '<div class="sub2">maks ' + fmt(r.kurangMx) + "</div>" : "") + "</div>" +
         '<div class="c-weeks"><div class="weeks">' + wk + "</div></div>" +
-        '<div class="c-ach r"><span class="pill ' + achClass(r.ach) + '">' + pct(r.ach) + "</span></div>" +
+        '<div class="c-ach r"><span class="pill ' + achClass(r.ach) + '">' + pct(r.ach) + "</span>" +
+        (r.duaTarget ? '<div class="sub2">maks ' + pct(r.achMx) + "</div>" : "") + "</div>" +
         "</button>";
     }).join("");
 
@@ -242,19 +265,23 @@
     }).sort(function (a, b) { return b.kur - a.kur; });
 
     var head = '<div class="grp head"><div>' + esc(key === "sales" ? "Salesman" : LBL_WILAYAH) +
-      '</div><div class="r">Outlet</div><div class="r">Target</div><div class="r">Realisasi</div>' +
-      '<div class="r">Kurang</div><div>Progres</div><div class="r">ACH</div></div>';
+      '</div><div class="r">Outlet</div><div class="r">Target MID / maks</div>' +
+      '<div class="r">Realisasi</div><div class="r">Kurang MID / maks</div>' +
+      '<div>Progres</div><div class="r">ACH MID / maks</div></div>';
 
     var body = list.map(function (t) {
       var w = t.ach === null ? 0 : Math.min(t.ach, 1) * 100;
       return '<div class="grp">' +
         '<div class="g-name name">' + esc(t.name) + "</div>" +
         '<div class="g-n r num"><span class="mlabel">Outlet </span>' + fmt(t.n) + "</div>" +
-        '<div class="g-tgt r num"><span class="mlabel">Target </span>' + fmt(t.tgt) + "</div>" +
+        '<div class="g-tgt r num"><span class="mlabel">Target </span>' + fmt(t.tgt) +
+        (t.duaTarget ? '<div class="sub2">maks ' + fmt(t.tgtMx) + "</div>" : "") + "</div>" +
         '<div class="g-tot r num"><span class="mlabel">Realisasi </span>' + fmt(t.tot) + "</div>" +
-        '<div class="g-kur r num"><span class="mlabel">Kurang </span>' + fmt(t.kur) + "</div>" +
+        '<div class="g-kur r num"><span class="mlabel">Kurang </span>' + fmt(t.kur) +
+        (t.duaTarget ? '<div class="sub2">maks ' + fmt(t.kurMx) + "</div>" : "") + "</div>" +
         '<div class="g-bar"><div class="bar"><i style="width:' + w.toFixed(1) + '%"></i></div></div>' +
-        '<div class="g-ach r"><span class="pill ' + achClass(t.ach) + '">' + pct(t.ach) + "</span></div>" +
+        '<div class="g-ach r"><span class="pill ' + achClass(t.ach) + '">' + pct(t.ach) + "</span>" +
+        (t.duaTarget ? '<div class="sub2">maks ' + pct(t.achMx) + "</div>" : "") + "</div>" +
         "</div>";
     }).join("");
 
@@ -287,10 +314,11 @@
     }).join("");
 
     var extra = "";
-    if (r.tgtMax && r.tgtMax !== r.tgt) {
-      extra += kv("Target maks", fmt(r.tgtMax));
+    if (r.duaTarget) {
+      extra += kv("Target maks", fmt(r.tgtMx));
+      extra += kv("Kekurangan maks", fmt(r.kurangMx));
       extra += '<div><div class="k">ACH vs maks</div><div class="v"><span class="pill ' +
-        achClass(r.total / r.tgtMax) + '">' + pct(r.total / r.tgtMax) + "</span></div></div>";
+        achClass(r.achMx) + '">' + pct(r.achMx) + "</span></div></div>";
     }
     if (r.tipe) extra += kv("Tipe outlet", esc(r.tipe));
     if (r.ket) extra += kv("Keterangan", esc(r.ket));
@@ -313,10 +341,10 @@
       kv("No outlet", r.no) +
       kv("Salesman", esc(r.sales)) +
       kv(LBL_WILAYAH, esc(r.wilayah)) +
-      kv("Target" + (r.satuan ? " (" + r.satuan + ")" : ""), fmt(r.tgt)) +
+      kv("Target MID" + (r.satuan ? " (" + r.satuan + ")" : ""), fmt(r.tgt)) +
       kv("Realisasi", fmt(r.total)) +
-      kv("Kekurangan", fmt(r.kurang)) +
-      '<div><div class="k">Achievement</div><div class="v"><span class="pill ' + achClass(r.ach) +
+      kv("Kekurangan MID", fmt(r.kurang)) +
+      '<div><div class="k">ACH vs MID</div><div class="v"><span class="pill ' + achClass(r.ach) +
       '">' + pct(r.ach) + "</span></div></div>" +
       extra +
       "</div>" +
@@ -344,14 +372,16 @@
   function exportCsv() {
     var rows = filtered().sort(SORTS[state.sort]);
     var head = ["Produk", "Satuan", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet",
-      "Alamat", "Tipe Outlet", "Channel", "Keterangan", "Zona", "Target", "Target Maks"]
-      .concat(WEEKS, ["Realisasi", "Kekurangan", "ACH %"]);
+      "Alamat", "Tipe Outlet", "Channel", "Keterangan", "Zona", "Target MID", "Target Maks"]
+      .concat(WEEKS, ["Realisasi", "Kurang MID", "Kurang Maks", "ACH MID %", "ACH Maks %"]);
 
     var lines = [head].concat(rows.map(function (r) {
       return [r.produk, r.satuan, r.sales, r.wilayah, r.no, r.nama, r.alamat, r.tipe,
-        r.channel, r.ket, r.zona, r.tgt, r.tgtMax]
+        r.channel, r.ket, r.zona, r.tgt, r.tgtMx]
         .concat(r.weeks.map(function (v) { return v === null ? "" : v; }),
-          [r.total, r.kurang, r.ach === null ? "" : Math.round(r.ach * 100)]);
+          [r.total, r.kurang, r.kurangMx,
+            r.ach === null ? "" : Math.round(r.ach * 100),
+            r.achMx === null ? "" : Math.round(r.achMx * 100)]);
     })).map(function (cols) {
       return cols.map(function (c) {
         var s = c === null || c === undefined ? "" : String(c);

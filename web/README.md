@@ -15,9 +15,12 @@ LM 1500+330, Galon 15L) / 153 outlet.
 > Galon 15L per galon. Kalau tab **Semua Produk** aktif, halaman memasang
 > peringatan bahwa angka gabungannya mencampur dua satuan.
 
-> **Target ada dua versi.** Workbook memberi TGT MID dan TGT MAX. Yang dipakai
-> di tabel dan ringkasan adalah **MID**; target MAX dan achievement-nya
-> ditampilkan di panel detail kalau nilainya berbeda.
+> **Target ada dua versi.** Workbook memberi TGT MID dan TGT MAX, dan keduanya
+> ditampilkan. **MID** adalah angka utama — dipakai untuk pengurutan dan warna
+> pill; **maks** menyusul di baris kecil di bawahnya pada kolom Target,
+> Kurang, dan ACH, di kartu ringkasan, di rekap per salesman/rayon, serta di
+> panel detail. Baris yang MID dan maks-nya sama tidak menampilkan baris
+> kedua. Di CSV keduanya jadi kolom sendiri.
 
 ## Yang bisa dilakukan
 
