@@ -37,7 +37,10 @@ const LETTER_ZOOM = 17
 
 export default function MapView() {
   const { data, result, reference, setReference, selected, setSelected, preferences, fitToken } = useApp()
-  const mode = preferences.colourMode
+  // Plain mode answers one question — where has my division not been yet — so
+  // it drops every other colour and gives the answer its own shape.
+  const focus = preferences.simpleMode
+  const mode = focus ? 'status' : preferences.colourMode
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const canvas = useRef<L.Canvas | null>(null)
@@ -60,9 +63,9 @@ export default function MapView() {
       })
     }
     const cluster = new Supercluster<PointProps, ClusterProps>({
-      radius: 62,
+      radius: 84,
       maxZoom: 16,
-      minPoints: 4,
+      minPoints: 5,
       map: (props) => {
         const perDivision = [0, 0, 0, 0, 0, 0]
         perDivision[props.division === NO_DIVISION ? DIVISIONS.length : props.division] = 1
@@ -146,6 +149,42 @@ export default function MapView() {
           const total = properties.point_count ?? 0
           const size = total > 1000 ? 52 : total > 200 ? 44 : total > 40 ? 38 : 32
           const marked = properties.marked ?? 0
+
+          if (focus) {
+            const short = (value: number) => (value >= 1000 ? `${Math.round(value / 100) / 10}rb` : String(value))
+            const scale = (value: number) =>
+              value <= 3 ? 22 : value <= 10 ? 27 : value <= 30 ? 32 : value <= 100 ? 38 : value <= 300 ? 45 : 52
+
+            // Far out, almost every cluster holds some opportunity, so painting
+            // them all orange says nothing: show the neighbourhood's total with
+            // a small orange badge for the opportunities inside it. Close in,
+            // where the answer is actionable, the orange takes over and its
+            // size follows the number of shops still open.
+            let box: number
+            let html: string
+            if (zoom < 14) {
+              box = Math.max(24, Math.round(scale(total) * 0.85))
+              const badge = marked > 0 ? `<span class="cluster-mark">${short(marked)}</span>` : ''
+              html = `<div class="overview-bubble" style="width:${box}px;height:${box}px;font-size:${box > 38 ? 12 : 11}px">${short(total)}${badge}</div>`
+            } else if (marked > 0) {
+              box = scale(marked)
+              html = `<div class="op-bubble" style="width:${box}px;height:${box}px;font-size:${box > 38 ? 14 : box > 26 ? 12 : 11}px">${short(marked)}</div>`
+            } else {
+              box = Math.max(18, Math.round(scale(total) * 0.6))
+              html = `<div class="quiet-bubble" style="width:${box}px;height:${box}px;font-size:10px">${short(total)}</div>`
+            }
+            L.marker([lat, lng], {
+              keyboard: false,
+              zIndexOffset: marked > 0 ? 500 : 0,
+              icon: L.divIcon({ html, className: '', iconSize: [box, box], iconAnchor: [box / 2, box / 2] }),
+            })
+              .on('click', () => {
+                const target = index.getClusterExpansionZoom(properties.cluster_id ?? 0)
+                instance.setView([lat, lng], Math.min(target, 19))
+              })
+              .addTo(layer)
+            continue
+          }
           const label = total >= 1000 ? `${Math.round(total / 100) / 10}rb` : String(total)
           const badge =
             marked > 0
@@ -199,8 +238,41 @@ export default function MapView() {
 
         const row = properties.row
         const division = properties.division
-        const colour = pinColour(mode, division, properties.marked, properties.omzet)
         const isSelected = selected === row
+
+        if (focus) {
+          if (properties.marked) {
+            const pin = L.marker([lat, lng], {
+              keyboard: false,
+              zIndexOffset: 600,
+              icon: L.divIcon({
+                html: `<div class="op-pin${isSelected ? ' is-selected' : ''}"><span>!</span></div>`,
+                className: '',
+                iconSize: [24, 24],
+                iconAnchor: [12, 24],
+              }),
+            })
+            pin.on('click', () => setSelected(row))
+            pin.addTo(layer)
+          } else {
+            const dot = L.circleMarker([lat, lng], {
+              renderer: canvas.current ?? undefined,
+              radius: isSelected ? 8 : 4,
+              fillColor: isSelected ? '#0ea5e9' : '#94a3b8',
+              fillOpacity: isSelected ? 0.95 : 0.5,
+              color: '#ffffff',
+              weight: isSelected ? 2 : 1,
+            })
+            dot.on('click', (event) => {
+              L.DomEvent.stopPropagation(event)
+              setSelected(row)
+            })
+            dot.addTo(layer)
+          }
+          continue
+        }
+
+        const colour = pinColour(mode, division, properties.marked, properties.omzet)
         const radius = zoom >= LETTER_ZOOM ? 11 : zoom >= 15 ? 8 : 6
         const marker = L.circleMarker([lat, lng], {
           renderer: canvas.current ?? undefined,
@@ -237,7 +309,7 @@ export default function MapView() {
     return () => {
       instance.off('moveend zoomend', render)
     }
-  }, [data, index, selected, setSelected, mode])
+  }, [data, index, selected, setSelected, mode, focus])
 
   // Frame the data the first time it arrives, and again whenever the user asks.
   useEffect(() => {

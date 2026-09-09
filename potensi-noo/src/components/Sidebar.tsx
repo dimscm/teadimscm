@@ -19,6 +19,20 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
 }
 
+function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">
+          {number}
+        </span>
+        {title}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
 /** One division button: colour swatch, name, and how many outlets it holds. */
 function DivisionRow({
   division,
@@ -141,8 +155,146 @@ export default function Sidebar({ onOpenExport }: { onOpenExport?: () => void })
 
   if (!data) return null
 
+  const exportButton = (
+    <button
+      type="button"
+      onClick={() => {
+        download(
+          `potensi-${marking.join('-') || 'outlet'}-${new Date().toISOString().slice(0, 10)}.csv`,
+          exportOutlets(data, result, preferences.radiusM, visits),
+        )
+        onOpenExport?.()
+      }}
+      className="mt-2.5 w-full rounded-xl bg-emerald-600 px-3 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+    >
+      ⬇ Ekspor daftar ini ke Excel
+    </button>
+  )
+
+  // ---------------------------------------------------------------- simple
+  if (preferences.simpleMode) {
+    const chosen = marking[0] ?? null
+    return (
+      <div className="flex h-full flex-col gap-5 overflow-y-auto p-4">
+        <Step number={1} title="Divisi saya">
+          <div className="grid grid-cols-2 gap-2">
+            {DIVISIONS.map((division) => {
+              const unknown = blind.includes(division)
+              const active = chosen === division
+              return (
+                <button
+                  key={division}
+                  type="button"
+                  disabled={unknown}
+                  onClick={() => setPreferences({ highlightGapFor: [division] })}
+                  className={`rounded-xl border-2 px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    active ? 'text-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                  style={
+                    active
+                      ? { backgroundColor: DIVISION_COLORS[division], borderColor: DIVISION_COLORS[division] }
+                      : undefined
+                  }
+                >
+                  <span className="block text-sm font-bold">{division}</span>
+                  <span className={`block text-[11px] ${active ? 'text-white/85' : 'text-slate-500'}`}>
+                    {unknown ? 'tidak ada koordinat' : `${formatNumber(counts.gap[division])} toko belum digarap`}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </Step>
+
+        <Step number={2} title="Lihat yang belum digarap">
+          <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 rotate-[-45deg] items-center justify-center rounded-full rounded-bl-none border-2 border-white bg-amber-500 shadow">
+                <span className="rotate-45 text-sm font-extrabold text-white">!</span>
+              </span>
+              <p className="text-xs leading-relaxed text-amber-900">
+                Pin oranye bertanda <strong>!</strong> = toko yang sudah dilayani divisi lain tapi{' '}
+                <strong>belum {chosen ?? 'divisi ini'}</strong>. Titik abu-abu kecil = sudah digarap.
+              </p>
+            </div>
+            <label className="mt-2.5 flex cursor-pointer items-center gap-2 rounded-xl bg-white px-2.5 py-2">
+              <input
+                type="checkbox"
+                checked={filters.onlyGap}
+                onChange={(event) => setFilters({ onlyGap: event.target.checked })}
+                className="h-4 w-4 rounded border-slate-300 accent-amber-600"
+              />
+              <span className="text-xs font-semibold text-slate-800">Sembunyikan toko yang sudah digarap</span>
+            </label>
+          </div>
+        </Step>
+
+        <Step number={3} title="Persempit wilayah (opsional)">
+          <input
+            value={filters.query}
+            onChange={(event) => setFilters({ query: event.target.value })}
+            placeholder="Cari nama toko, alamat, kode…"
+            className="mb-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-slate-400 focus:bg-white focus:outline-none"
+          />
+          <FacetSelect
+            title="Kecamatan"
+            allLabel="Semua kecamatan"
+            options={facets.kecamatan}
+            selected={filters.kecamatan}
+            onChange={(values) => setFilters({ kecamatan: values, kelurahan: [] })}
+          />
+        </Step>
+
+        <section className="rounded-2xl border-2 border-slate-900 bg-white p-3">
+          <p className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">Hasil</p>
+          {chosen ? (
+            <>
+              <p className="mt-1 text-2xl leading-tight font-bold text-amber-600">
+                {formatNumber(result.markedCount)}
+              </p>
+              <p className="text-xs text-slate-700">
+                toko belum digarap <strong>{chosen}</strong>
+                {marking.length === 1 && ` · ${formatRupiah(counts.gapOmzet[chosen])}`}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">dari {formatNumber(result.count)} outlet yang tampil</p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-slate-600">Pilih divisi di langkah 1.</p>
+          )}
+          {exportButton}
+        </section>
+
+        <div className="mt-auto space-y-2 pt-2">
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="w-full rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800"
+          >
+            Reset filter
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreferences({ simpleMode: false })}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+          >
+            Buka filter lanjutan
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // -------------------------------------------------------------- advanced
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-4">
+      <button
+        type="button"
+        onClick={() => setPreferences({ simpleMode: true })}
+        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+      >
+        ← Kembali ke tampilan sederhana
+      </button>
+
       <section>
         <h2 className="mb-1.5 text-[11px] font-bold tracking-wider text-slate-500 uppercase">Cari toko</h2>
         <input
@@ -194,7 +346,7 @@ export default function Sidebar({ onOpenExport }: { onOpenExport?: () => void })
         <h2 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">Tandai peluang: belum digarap</h2>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
           Pilih divisi untuk <strong>menandai</strong> toko yang belum disentuh divisi itu. Seluruh peta tetap tampil —
-          yang ditandai diberi lingkaran tebal.
+          yang ditandai diberi pin oranye.
         </p>
         <div className="mt-2.5 grid grid-cols-2 gap-2">
           {DIVISIONS.map((division) => {
@@ -243,15 +395,6 @@ export default function Sidebar({ onOpenExport }: { onOpenExport?: () => void })
             Sembunyikan toko lainnya <span className="text-slate-500">({formatNumber(result.markedCount)} ditandai)</span>
           </span>
         </label>
-        {marking.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setPreferences({ highlightGapFor: [] })}
-            className="mt-2 text-[11px] font-semibold text-sky-700 hover:underline"
-          >
-            Hapus penandaan
-          </button>
-        )}
       </section>
 
       <section>
@@ -365,22 +508,9 @@ export default function Sidebar({ onOpenExport }: { onOpenExport?: () => void })
         {marking.length > 0 && (
           <p className="mt-1 text-[11px] text-amber-700">
             {formatNumber(result.markedCount)} di antaranya belum digarap {marking.join(' & ')}
-            {marking.length === 1 && ` · ${formatRupiah(counts.gapOmzet[marking[0]])}`}
           </p>
         )}
-        <button
-          type="button"
-          onClick={() => {
-            download(
-              `potensi-${marking.join('-') || 'outlet'}-${new Date().toISOString().slice(0, 10)}.csv`,
-              exportOutlets(data, result, preferences.radiusM, visits),
-            )
-            onOpenExport?.()
-          }}
-          className="mt-2.5 w-full rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
-        >
-          ⬇ Ekspor hasil ke Excel (CSV)
-        </button>
+        {exportButton}
         <button
           type="button"
           onClick={resetFilters}

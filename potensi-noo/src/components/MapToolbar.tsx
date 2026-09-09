@@ -62,6 +62,7 @@ export default function MapToolbar({ onPickPoint }: { onPickPoint: () => void })
         Zoom ke hasil
       </button>
 
+      {!preferences.simpleMode && (
       <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-md">
         {MODES.map((item) => (
           <button
@@ -77,11 +78,15 @@ export default function MapToolbar({ onPickPoint }: { onPickPoint: () => void })
           </button>
         ))}
       </div>
+      )}
 
       {result.markedCount > 0 && (
-        <span className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 shadow-md">
-          <span className="inline-block h-3.5 w-3.5 rounded-full border-[3px] border-amber-500 bg-white" />
-          {formatNumber(result.markedCount)} toko ditandai — bercincin tebal
+        <span className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 shadow-md">
+          <span className="flex h-5 w-5 rotate-[-45deg] items-center justify-center rounded-full rounded-bl-none border-2 border-white bg-amber-500">
+            <span className="rotate-45 text-[10px] font-extrabold text-white">!</span>
+          </span>
+          {formatNumber(result.markedCount)} toko belum digarap
+          {preferences.highlightGapFor.length > 0 && ` ${preferences.highlightGapFor.join(' & ')}`}
         </span>
       )}
       {error && (

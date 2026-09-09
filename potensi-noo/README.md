@@ -50,7 +50,27 @@ Satu toko dihitung sudah digarap kalau **salah satu** pendaftarannya sudah dilay
 aturan yang sama dipakai peta, angka di panel kiri, dan file ekspor, supaya ketiganya tidak pernah
 berbeda.
 
-## Warna, tanda, dan ekspor
+## Tampilan sederhana (bawaan)
+
+Web ini terbuka dalam mode sederhana: satu pertanyaan, satu jawaban.
+
+1. **Divisi saya** — pilih satu divisi. Tiap tombol langsung menunjukkan berapa toko yang belum
+   digarapnya.
+2. **Lihat yang belum digarap** — toko yang belum disentuh divisi itu diberi **pin oranye bertanda
+   `!`**; toko yang sudah digarap jadi titik abu-abu kecil. Ada satu centang untuk menyembunyikan
+   yang sudah digarap.
+3. **Persempit wilayah** — pencarian nama toko dan pilihan kecamatan.
+
+Lalu kotak **Hasil** menampilkan angkanya besar-besar dan tombol ekspor.
+
+Petanya bertingkat supaya tidak bikin pusing: dari jauh tiap gerombolan tampil sebagai bulatan putih
+berisi jumlah toko dengan **angka oranye kecil** untuk yang belum digarap — jadi mata langsung tertuju
+ke angka oranye terbesar. Diperbesar, gerombolan berganti jadi bulatan oranye seukuran jumlah
+peluangnya, lalu akhirnya jadi pin `!` per toko.
+
+Semua penyaring lain ada di balik tombol **Buka filter lanjutan**.
+
+## Warna, tanda, dan ekspor (mode lanjutan)
 
 - **Warna titik bisa diganti artinya** lewat tombol di atas peta:
   - *Divisi* — tiap divisi punya warnanya sendiri (BIS biru, CWC cokelat, MUH toska, MU magenta,

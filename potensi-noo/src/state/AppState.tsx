@@ -14,6 +14,8 @@ interface Preferences {
   includeUnmapped: boolean
   highlightGapFor: Filters['highlightGapFor']
   colourMode: ColourMode
+  /** Start plain: one question, one answer. Advanced controls stay hidden. */
+  simpleMode: boolean
   sortKey: SortKey
   sortDesc: boolean
   salesName: string
@@ -25,6 +27,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   includeUnmapped: false,
   highlightGapFor: ['M3'],
   colourMode: 'divisi',
+  simpleMode: true,
   sortKey: 'distance',
   sortDesc: false,
   salesName: '',

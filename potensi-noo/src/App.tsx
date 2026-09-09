@@ -128,7 +128,9 @@ export default function App() {
                   </span>
                 </div>
               )}
-              <div className="pointer-events-none absolute bottom-3 left-3 z-[900]">
+              {/* On a phone the bottom sheet sits where the legend would be, and
+                  step 2 in the panel already explains the pins. */}
+              <div className="pointer-events-none absolute bottom-3 left-3 z-[900] hidden lg:block">
                 <MapLegend />
               </div>
               <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[900] flex justify-center xl:hidden">

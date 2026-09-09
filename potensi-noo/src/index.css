@@ -105,3 +105,77 @@ body {
   border: 2px solid #0ea5e9;
   animation: pulse-ring 1.6s ease-out infinite;
 }
+
+/* The "belum digarap" marker: a shape, not just another colour. */
+.op-pin {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #f59e0b;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.4);
+}
+
+.op-pin span {
+  transform: rotate(45deg);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.op-pin.is-selected {
+  background: #ea580c;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.35), 0 2px 6px rgba(15, 23, 42, 0.4);
+}
+
+/* Cluster that holds opportunities: orange, counting the opportunities. */
+.op-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #f59e0b;
+  color: #fff;
+  font-weight: 800;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.3);
+}
+
+.op-bubble small {
+  font-weight: 600;
+  opacity: 0.85;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.quiet-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(226, 232, 240, 0.92);
+  color: #475569;
+  font-weight: 600;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
+}
+
+/* Overview bubble: how many shops sit here, with a badge for the open ones. */
+.overview-bubble {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #334155;
+  font-weight: 700;
+  border: 2px solid #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
