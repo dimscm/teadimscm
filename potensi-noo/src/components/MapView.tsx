@@ -2,19 +2,42 @@ import { useEffect, useMemo, useRef } from 'react'
 import L from 'leaflet'
 import Supercluster from 'supercluster'
 import { useApp } from '../state/AppState'
-import { DIVISIONS, DIVISION_COLORS, DIVISION_INITIALS, NO_DIVISION, UNKNOWN_COLOR } from '../types'
+import { DIVISIONS, DIVISION_COLORS, DIVISION_INITIALS, NO_DIVISION, OMZET_STEPS, STATUS_COLOURS, UNKNOWN_COLOR } from '../types'
+
+/** Colour of one outlet under the active colour mode. */
+function pinColour(mode: string, division: number, marked: number, omzet: number): string {
+  if (mode === 'status') return marked ? STATUS_COLOURS.marked : STATUS_COLOURS.covered
+  if (mode === 'omzet') return (OMZET_STEPS.find((step) => omzet < step.limit) ?? OMZET_STEPS[OMZET_STEPS.length - 1]).colour
+  return division === NO_DIVISION ? UNKNOWN_COLOR : DIVISION_COLORS[DIVISIONS[division]]
+}
+
+/** Readable text colour on top of a filled circle. */
+function inkOn(colour: string): string {
+  const hex = colour.replace('#', '')
+  const value = parseInt(hex.length === 3 ? hex.replace(/./g, (c) => c + c) : hex, 16)
+  const luminance = (0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255)) / 255
+  return luminance > 0.62 ? '#0f172a' : '#ffffff'
+}
 
 interface PointProps {
   row: number
   marked: number
   division: number
+  omzet: number
+}
+
+interface ClusterProps {
+  marked: number
+  /** Points per division, so a bubble can show what it is made of. */
+  perDivision: number[]
 }
 
 /** Zoom at which single outlets get their division letter drawn on top. */
 const LETTER_ZOOM = 17
 
 export default function MapView() {
-  const { data, result, reference, setReference, selected, setSelected } = useApp()
+  const { data, result, reference, setReference, selected, setSelected, preferences } = useApp()
+  const mode = preferences.colourMode
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const canvas = useRef<L.Canvas | null>(null)
@@ -31,17 +54,22 @@ export default function MapView() {
       if (data.positionSource[row] === 0) continue
       features.push({
         type: 'Feature',
-        properties: { row, marked: result.marked[i], division: data.division[row] },
+        properties: { row, marked: result.marked[i], division: data.division[row], omzet: result.omzet[i] },
         geometry: { type: 'Point', coordinates: [data.lng[row], data.lat[row]] },
       })
     }
-    const cluster = new Supercluster<PointProps, { marked: number }>({
+    const cluster = new Supercluster<PointProps, ClusterProps>({
       radius: 62,
       maxZoom: 16,
       minPoints: 4,
-      map: (props) => ({ marked: props.marked }),
+      map: (props) => {
+        const perDivision = [0, 0, 0, 0, 0, 0]
+        perDivision[props.division === NO_DIVISION ? DIVISIONS.length : props.division] = 1
+        return { marked: props.marked, perDivision }
+      },
       reduce: (accumulated, props) => {
         accumulated.marked += props.marked
+        for (let i = 0; i < accumulated.perDivision.length; i += 1) accumulated.perDivision[i] += props.perDivision[i]
       },
     })
     cluster.load(features)
@@ -106,12 +134,12 @@ export default function MapView() {
 
       for (const feature of clusters) {
         const [lng, lat] = feature.geometry.coordinates
-        const properties = feature.properties as PointProps & {
-          cluster?: boolean
-          cluster_id?: number
-          point_count?: number
-          marked?: number
-        }
+        const properties = feature.properties as PointProps &
+          ClusterProps & {
+            cluster?: boolean
+            cluster_id?: number
+            point_count?: number
+          }
 
         if (properties.cluster) {
           const total = properties.point_count ?? 0
@@ -122,10 +150,39 @@ export default function MapView() {
             marked > 0
               ? `<span class="cluster-mark">${marked >= 1000 ? `${Math.round(marked / 100) / 10}rb` : marked}</span>`
               : ''
-          // A ring on every bubble would say nothing: most clusters contain at
-          // least one gap. The ring means "mostly gaps", the badge counts them.
+
+          // A grey bubble hides which division is under it. Fill the bubble
+          // with the division that owns most of its points, and draw the rest
+          // as a conic slice ring so a mixed area still looks mixed.
+          const parts = properties.perDivision ?? []
+          let dominant = 0
+          for (let i = 1; i < parts.length; i += 1) if (parts[i] > parts[dominant]) dominant = i
+          const base =
+            mode === 'divisi'
+              ? dominant >= DIVISIONS.length
+                ? UNKNOWN_COLOR
+                : DIVISION_COLORS[DIVISIONS[dominant]]
+              : mode === 'status'
+                ? marked > total / 2
+                  ? STATUS_COLOURS.marked
+                  : STATUS_COLOURS.covered
+                : '#0284c7'
+          let sweep = ''
+          if (mode === 'divisi') {
+            let at = 0
+            const stops: string[] = []
+            for (let i = 0; i < parts.length; i += 1) {
+              if (!parts[i]) continue
+              const share = (parts[i] / Math.max(total, 1)) * 360
+              const colour = i >= DIVISIONS.length ? UNKNOWN_COLOR : DIVISION_COLORS[DIVISIONS[i]]
+              stops.push(`${colour} ${at.toFixed(1)}deg ${(at + share).toFixed(1)}deg`)
+              at += share
+            }
+            sweep = `<span class="cluster-ring" style="background:conic-gradient(${stops.join(',')})"></span>`
+          }
+          // The ring means "mostly gaps"; the badge counts them exactly.
           const icon = L.divIcon({
-            html: `<div class="cluster-bubble" data-marked="${marked / Math.max(total, 1) >= 0.5 ? 1 : 0}" style="width:${size}px;height:${size}px;font-size:${size > 40 ? 13 : 12}px">${label}${badge}</div>`,
+            html: `<div class="cluster-bubble" data-marked="${marked / Math.max(total, 1) >= 0.5 ? 1 : 0}" style="width:${size}px;height:${size}px;font-size:${size > 40 ? 13 : 12}px;--bubble:${base};color:${inkOn(base)}">${sweep}<span class="cluster-count">${label}</span>${badge}</div>`,
             className: '',
             iconSize: [size, size],
             iconAnchor: [size / 2, size / 2],
@@ -141,7 +198,7 @@ export default function MapView() {
 
         const row = properties.row
         const division = properties.division
-        const colour = division === NO_DIVISION ? UNKNOWN_COLOR : DIVISION_COLORS[DIVISIONS[division]]
+        const colour = pinColour(mode, division, properties.marked, properties.omzet)
         const isSelected = selected === row
         const radius = zoom >= LETTER_ZOOM ? 11 : zoom >= 15 ? 8 : 6
         const marker = L.circleMarker([lat, lng], {
@@ -158,7 +215,7 @@ export default function MapView() {
         })
         marker.addTo(layer)
 
-        if (zoom >= LETTER_ZOOM) {
+        if (zoom >= LETTER_ZOOM && mode === 'divisi') {
           const letter = division === NO_DIVISION ? '?' : DIVISION_INITIALS[DIVISIONS[division]]
           L.marker([lat, lng], {
             interactive: false,
@@ -179,7 +236,7 @@ export default function MapView() {
     return () => {
       instance.off('moveend zoomend', render)
     }
-  }, [data, index, selected, setSelected])
+  }, [data, index, selected, setSelected, mode])
 
   // Fit to the data once, the first time a dataset arrives.
   useEffect(() => {

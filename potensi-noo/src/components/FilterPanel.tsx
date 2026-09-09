@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { useApp } from '../state/AppState'
-import { sortedValues, unmappedDivisions } from '../lib/dataset'
+import { sortedValues } from '../lib/dataset'
 import { formatNumber, formatRupiah } from '../lib/format'
-import { DIVISIONS, type Division } from '../types'
+import { DIVISIONS } from '../types'
 import { DivisionDot, Sheet } from './bits'
 
 function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (value: boolean) => void; label: string; hint?: string }) {
@@ -56,7 +56,7 @@ function ChipGroup({
 }
 
 export default function FilterPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { data, filters, setFilters, resetFilters, preferences, setPreferences, result } = useApp()
+  const { data, filters, setFilters, resetFilters, setPreferences, result } = useApp()
 
   const channels = useMemo(() => (data ? sortedValues(data.channels) : []), [data])
   const kecamatan = useMemo(() => (data ? sortedValues(data.kecamatan) : []), [data])
@@ -71,13 +71,11 @@ export default function FilterPanel({ open, onClose }: { open: boolean; onClose:
     return sortedValues([...allowed])
   }, [data, filters.kecamatan])
 
-  const blind = data ? unmappedDivisions(data) : []
-
   const toggle = (list: string[], value: string): string[] =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
 
   return (
-    <Sheet open={open} onClose={onClose} title="Filter & tanda">
+    <Sheet open={open} onClose={onClose} title="Filter lain">
       <div className="space-y-5">
         <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
           <strong className="text-slate-900">{formatNumber(result.count)}</strong> titik tampil ·{' '}
@@ -89,54 +87,6 @@ export default function FilterPanel({ open, onClose }: { open: boolean; onClose:
             </>
           )}
         </div>
-
-        <section>
-          <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Tandai peluang divisi</h3>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPreferences({ highlightGapFor: null })}
-              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${
-                preferences.highlightGapFor === null
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700'
-              }`}
-            >
-              Tidak ada
-            </button>
-            {DIVISIONS.map((division) => (
-              <button
-                key={division}
-                type="button"
-                onClick={() => setPreferences({ highlightGapFor: division as Division })}
-                disabled={blind.includes(division)}
-                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold disabled:opacity-40 ${
-                  preferences.highlightGapFor === division
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-slate-200 bg-white text-slate-700'
-                }`}
-              >
-                <DivisionDot division={division} />
-                {division}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 text-[11px] text-slate-500">
-            Toko yang sudah dilayani divisi lain tapi belum divisi ini diberi lingkaran oranye — semua titik tetap
-            tampil.
-          </p>
-          {blind.length > 0 && (
-            <p className="mt-1 text-[11px] text-slate-400">
-              {blind.join(', ')} tidak bisa dipakai: tidak ada koordinat di file.
-            </p>
-          )}
-          <Toggle
-            checked={filters.onlyGap}
-            onChange={(value) => setFilters({ onlyGap: value })}
-            label="Tampilkan hanya yang ditandai"
-            hint="Matikan kalau ingin melihat seluruh peta."
-          />
-        </section>
 
         <section>
           <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Divisi pemilik baris</h3>

@@ -10,7 +10,13 @@ import { DIVISIONS } from '../types'
  * The headline answer: standing here, which shops are next to me, whose are
  * they, and how big are they.
  */
-export default function NearbyPanel({ onOpenDetail }: { onOpenDetail: (row: number) => void }) {
+export default function NearbyPanel({
+  onOpenDetail,
+  variant = 'sheet',
+}: {
+  onOpenDetail: (row: number) => void
+  variant?: 'sheet' | 'panel'
+}) {
   const { data, result, reference, setReference, preferences, filters } = useApp()
   const [collapsed, setCollapsed] = useState(false)
   const [locating, setLocating] = useState(false)
@@ -56,8 +62,36 @@ export default function NearbyPanel({ onOpenDetail }: { onOpenDetail: (row: numb
   }
   const sortedByDistance = preferences.sortKey === 'distance' && !preferences.sortDesc
 
+  if (variant === 'panel' && !reference) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <h2 className="text-sm font-bold text-slate-900">Outlet terdekat dari titik saya</h2>
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+          Tentukan titik patokan dulu — pakai GPS kalau Anda sedang di lapangan, atau ketuk satu titik di peta kalau
+          sedang menyusun rencana kunjungan.
+        </p>
+        <button
+          type="button"
+          onClick={locate}
+          disabled={locating}
+          className="mt-3 w-full rounded-xl bg-sky-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60"
+        >
+          📍 {locating ? 'Mencari…' : 'Pakai lokasi saya'}
+        </button>
+        <p className="mt-2 text-center text-[11px] text-slate-500">atau ketuk satu titik di peta</p>
+        {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+      </div>
+    )
+  }
+
   return (
-    <div className="pointer-events-auto w-full rounded-t-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur sm:w-96 sm:rounded-2xl">
+    <div
+      className={
+        variant === 'panel'
+          ? 'pointer-events-auto w-full rounded-2xl border border-slate-200 bg-white'
+          : 'pointer-events-auto w-full rounded-t-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur sm:w-96 sm:rounded-2xl'
+      }
+    >
       <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2">
         <button
           type="button"
@@ -88,7 +122,7 @@ export default function NearbyPanel({ onOpenDetail }: { onOpenDetail: (row: numb
       {error && <p className="px-3 py-2 text-xs text-rose-600">{error}</p>}
 
       {!collapsed && (
-        <div className="max-h-[45vh] overflow-y-auto sm:max-h-[52vh]">
+        <div className={variant === 'panel' ? 'max-h-[calc(100vh-260px)] overflow-y-auto' : 'max-h-[45vh] overflow-y-auto sm:max-h-[52vh]'}>
           {!reference && (
             <p className="px-3 py-4 text-sm text-slate-500">
               Tekan <strong>Lokasi saya</strong>, atau ketuk satu titik di peta. Daftar outlet terdekat dari titik itu

@@ -43,7 +43,28 @@ Penggabungan memakai dua rambu supaya tidak kebablasan:
   Tanpa rambu ini, satu deretan kios di pasar akan menyatu jadi satu "toko" raksasa.
 - **Sebaran dibatasi.** Satu kelompok tidak boleh melebar lebih dari 45 m dari pusatnya sendiri.
 
-Di file terakhir: 56.845 baris → **20.043 toko fisik**, 6.950 di antaranya dilayani ≥2 divisi.
+Di file terakhir: 56.845 baris → **20.043 toko fisik**, 6.950 di antaranya dilayani ≥2 divisi, dan
+**8.131 toko belum digarap M3** (Rp 42,3 M omzet 26 minggu).
+
+Satu toko dihitung sudah digarap kalau **salah satu** pendaftarannya sudah dilayani divisi itu —
+aturan yang sama dipakai peta, angka di panel kiri, dan file ekspor, supaya ketiganya tidak pernah
+berbeda.
+
+## Warna, tanda, dan ekspor
+
+- **Warna titik bisa diganti artinya** lewat tombol di atas peta:
+  - *Divisi* — tiap divisi punya warnanya sendiri (BIS biru, CWC cokelat, MUH toska, MU magenta,
+    M3 ungu). Gerombolan titik ikut diwarnai divisi terbanyak di dalamnya, dengan gelang di
+    sekelilingnya yang menunjukkan komposisinya. Diperbesar, tiap titik memunculkan huruf divisinya
+    (B/C/H/M/3) — warna saja tidak cukup untuk lima divisi, apalagi bagi yang buta warna.
+  - *Status* — oranye untuk toko yang belum digarap divisi yang ditandai, abu-abu untuk yang sudah.
+  - *Omzet* — makin gelap, makin besar omzet tokonya.
+- **Menandai peluang bisa lebih dari satu divisi.** Kalau BIS dan M3 dipilih bersamaan, yang ditandai
+  hanya toko yang belum digarap keduanya. Setiap divisi menampilkan jumlah tokonya sendiri, dan
+  divisi tanpa koordinat (MUH) dimatikan supaya tidak memberi angka palsu.
+- **Ekspor** ada di kotak *Hasil* di panel kiri: file CSV berisi persis daftar yang sedang tampil,
+  lengkap dengan kolom `DIVISI YANG SUDAH MASUK`, `DIVISI YANG BELUM`, `DITANDAI PELUANG`, dan
+  `NAMA TOKO INI DI DIVISI LAIN` — bukti bahwa baris-baris itu satu toko fisik walau namanya berbeda.
 
 ## Cara pakai (sales)
 
@@ -52,7 +73,8 @@ Di file terakhir: 56.845 baris → **20.043 toko fisik**, 6.950 di antaranya dil
 3. Tekan **Lokasi saya**, atau ketuk satu titik di peta → daftar outlet terdekat muncul: nama, sales
    pemegang, omzet, dan divisi mana saja yang sudah masuk.
 4. Titik berlingkaran oranye = toko yang sudah dilayani divisi lain tapi **belum** divisi yang
-   ditandai (standar: M3). Semua titik lain tetap tampil — tanda tidak menyembunyikan apa pun.
+   ditandai (standar: M3). Semua titik lain tetap tampil — tanda tidak menyembunyikan apa pun,
+   kecuali kalau *Sembunyikan toko lainnya* dicentang.
 5. Buka toko → **Rute ke sini** untuk dibuka di Google Maps.
 6. Sesudah berkunjung, isi **Laporan kunjungan**: status, toko selama ini beli dari mana, dan catatan.
 7. Kantor mengambil laporannya dari tab **Ringkasan → Unduh laporan survey** (CSV, langsung terbuka

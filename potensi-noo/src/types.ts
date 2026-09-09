@@ -104,8 +104,8 @@ export interface Filters {
   kecamatan: string[]
   kelurahan: string[]
   minOmzet: number
-  /** Mark (not hide) stores that these divisions do not yet serve. */
-  highlightGapFor: Division | null
+  /** Mark (not hide) stores none of these divisions serve yet. */
+  highlightGapFor: Division[]
   /** Show only the marked stores. Off by default: every pin stays on the map. */
   onlyGap: boolean
   /** Collapse the registrations of one physical store into a single pin. */
@@ -122,7 +122,7 @@ export const EMPTY_FILTERS: Filters = {
   kecamatan: [],
   kelurahan: [],
   minOmzet: 0,
-  highlightGapFor: null,
+  highlightGapFor: ['M3'],
   onlyGap: false,
   groupByStore: true,
   includeUnmapped: false,
@@ -131,6 +131,22 @@ export const EMPTY_FILTERS: Filters = {
 }
 
 export type SortKey = 'distance' | 'omzet' | 'name' | 'kecamatan'
+
+/** What the pin colour means. */
+export type ColourMode = 'divisi' | 'status' | 'omzet'
+
+export const OMZET_STEPS: { limit: number; colour: string; label: string }[] = [
+  { limit: 1e6, colour: '#cbd5e1', label: '< Rp 1 jt' },
+  { limit: 5e6, colour: '#7dd3fc', label: 'Rp 1–5 jt' },
+  { limit: 20e6, colour: '#38bdf8', label: 'Rp 5–20 jt' },
+  { limit: 100e6, colour: '#0284c7', label: 'Rp 20–100 jt' },
+  { limit: Infinity, colour: '#0c4a6e', label: '> Rp 100 jt' },
+]
+
+export const STATUS_COLOURS = {
+  marked: '#f59e0b',
+  covered: '#94a3b8',
+} as const
 
 export const SUPPLY_SOURCES = [
   'Belum tahu',

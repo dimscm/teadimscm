@@ -52,7 +52,9 @@ export function runFilter(
     ? new Set(filters.divisions.map((division) => DIVISIONS.indexOf(division)))
     : null
   const query = filters.query.trim().toUpperCase()
-  const gapIndex = filters.highlightGapFor ? DIVISIONS.indexOf(filters.highlightGapFor) : -1
+  // A store is "marked" only when NONE of the chosen divisions serves it yet.
+  let gapMask = 0
+  for (const division of filters.highlightGapFor) gapMask |= 1 << DIVISIONS.indexOf(division)
 
   const rows: number[] = []
   const marks: number[] = []
@@ -88,12 +90,10 @@ export function runFilter(
     }
 
     let marked = 0
-    if (gapIndex >= 0 && positioned) {
+    if (gapMask !== 0 && positioned) {
       const mask = coverageMask(data, i, radiusM)
-      marked = mask & (1 << gapIndex) ? 0 : 1
+      marked = mask & gapMask ? 0 : 1
     }
-    if (filters.onlyGap && gapIndex >= 0 && marked === 0) continue
-
     const store = filters.groupByStore ? data.storeId[i] : -1
     if (store >= 0) {
       omzetByStore.set(store, (omzetByStore.get(store) ?? 0) + data.omzet[i])
@@ -106,7 +106,9 @@ export function runFilter(
       } else {
         // The representative is the biggest registration of the shop.
         if (data.omzet[i] > data.omzet[rows[at]]) rows[at] = i
-        if (marked) marks[at] = 1
+        // One registration that is already covered clears the whole shop: a
+        // shop is only an opportunity when none of its rows has been reached.
+        if (!marked) marks[at] = 0
       }
     } else {
       rows.push(i)
@@ -115,17 +117,25 @@ export function runFilter(
     }
   }
 
-  const count = rows.length
+  // "Only the marked ones" has to wait until the registrations of a shop have
+  // been collapsed: dropping a covered row early would turn its shop into a
+  // false opportunity.
+  const keep =
+    filters.onlyGap && gapMask !== 0
+      ? Array.from({ length: rows.length }, (_, i) => i).filter((i) => marks[i] === 1)
+      : null
+
+  const count = keep ? keep.length : rows.length
   const order = new Int32Array(count)
-  for (let i = 0; i < count; i += 1) order[i] = i
+  for (let i = 0; i < count; i += 1) order[i] = keep ? keep[i] : i
 
-  const omzet = new Float64Array(count)
+  const omzet = new Float64Array(rows.length)
   for (const [store, at] of bestByStore) omzet[at] = omzetByStore.get(store) ?? 0
-  for (let i = 0; i < count; i += 1) if (omzet[i] === 0) omzet[i] = rowOmzet[i] || data.omzet[rows[i]]
+  for (let i = 0; i < rows.length; i += 1) if (omzet[i] === 0) omzet[i] = rowOmzet[i] || data.omzet[rows[i]]
 
-  const distance = new Float64Array(count).fill(Infinity)
+  const distance = new Float64Array(rows.length).fill(Infinity)
   if (reference) {
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0; i < rows.length; i += 1) {
       const row = rows[i]
       if (data.positionSource[row] === 0) continue
       distance[i] = metres(reference.lat, reference.lng, data.lat[row], data.lng[row])
@@ -151,6 +161,7 @@ export function runFilter(
     }
   }
   const direction = sortDesc ? -1 : 1
+  // `order` holds indexes into `rows`; sorting reorders those, not the arrays.
   const sorted = Array.from(order).sort((left, right) => {
     const result = compare(left, right)
     if (result !== 0) return result * direction

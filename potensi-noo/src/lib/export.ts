@@ -42,7 +42,9 @@ export function exportOutlets(data: Dataset, result: FilterResult, radiusM: numb
     'OMZET',
     'DIVISI YANG SUDAH MASUK',
     'DIVISI YANG BELUM',
+    'DITANDAI PELUANG',
     'JUMLAH PENDAFTARAN TOKO',
+    'NAMA TOKO INI DI DIVISI LAIN',
     'LATITUDE',
     'LONGITUDE',
     'LINK MAPS',
@@ -58,6 +60,11 @@ export function exportOutlets(data: Dataset, result: FilterResult, radiusM: numb
     const covered = DIVISIONS.filter((_, index) => mask & (1 << index))
     const visit = visits.get(data.codes[row])
     const positioned = data.positionSource[row] !== 0
+    const registrations = storeRows(data, row)
+    // The proof that this is one shop: what the other divisions call it.
+    const aliases = registrations
+      .filter((other) => other !== row)
+      .map((other) => `${outletName(data, other)} (${DIVISIONS[data.division[other]] ?? '-'})`)
     rows.push([
       data.codes[row],
       outletName(data, row),
@@ -70,7 +77,9 @@ export function exportOutlets(data: Dataset, result: FilterResult, radiusM: numb
       Math.round(result.omzet[i]),
       covered.join(' + '),
       gapDivisions(mask).join(' + '),
-      storeRows(data, row).length,
+      result.marked[i] ? 'YA' : '',
+      registrations.length,
+      aliases.join(' | '),
       positioned ? data.lat[row].toFixed(6) : '',
       positioned ? data.lng[row].toFixed(6) : '',
       positioned ? mapsLink(data.lat[row], data.lng[row]) : '',

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { EMPTY_FILTERS, type Dataset, type Filters, type ReferencePoint, type SortKey, type VisitRecord } from '../types'
+import { EMPTY_FILTERS, type ColourMode, type Dataset, type Filters, type ReferencePoint, type SortKey, type VisitRecord } from '../types'
 import { materialise } from '../lib/dataset'
 import { runFilter, type FilterResult } from '../lib/filter'
 import * as db from '../lib/db'
@@ -13,6 +13,7 @@ interface Preferences {
   groupByStore: boolean
   includeUnmapped: boolean
   highlightGapFor: Filters['highlightGapFor']
+  colourMode: ColourMode
   sortKey: SortKey
   sortDesc: boolean
   salesName: string
@@ -22,7 +23,8 @@ const DEFAULT_PREFERENCES: Preferences = {
   radiusM: 60,
   groupByStore: true,
   includeUnmapped: false,
-  highlightGapFor: 'M3',
+  highlightGapFor: ['M3'],
+  colourMode: 'divisi',
   sortKey: 'distance',
   sortDesc: false,
   salesName: '',

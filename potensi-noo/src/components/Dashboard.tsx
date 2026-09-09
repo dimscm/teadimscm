@@ -9,9 +9,11 @@ import { DivisionDot, Stat } from './bits'
 export default function Dashboard() {
   const { data, result, preferences, filters, visits } = useApp()
 
+  const marking = preferences.highlightGapFor
   const gap = useMemo(() => {
-    if (!data || !preferences.highlightGapFor) return null
-    const target = DIVISIONS.indexOf(preferences.highlightGapFor)
+    if (!data || marking.length === 0) return null
+    let targetMask = 0
+    for (const division of marking) targetMask |= 1 << DIVISIONS.indexOf(division)
     const seen = new Set<number>()
     const perKecamatan = new Map<string, { count: number; omzet: number }>()
     let count = 0
@@ -24,7 +26,7 @@ export default function Dashboard() {
         seen.add(store)
       }
       const mask = coverageMask(data, i, preferences.radiusM)
-      if (mask & (1 << target)) continue
+      if (mask & targetMask) continue
       if (countDivisions(mask) < 2) continue
       count += 1
       const rows = store >= 0 ? (data.storeIndex.get(store) ?? [i]) : [i]
@@ -42,7 +44,7 @@ export default function Dashboard() {
     }
     const top = [...perKecamatan.entries()].sort((a, b) => b[1].omzet - a[1].omzet).slice(0, 10)
     return { count, omzet, top }
-  }, [data, preferences.highlightGapFor, preferences.radiusM])
+  }, [data, marking, preferences.radiusM])
 
   if (!data) return null
   const meta = data.meta
@@ -75,13 +77,13 @@ export default function Dashboard() {
           </p>
         </section>
 
-        {gap && preferences.highlightGapFor && (
+        {gap && marking.length > 0 && (
           <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <h2 className="text-sm font-bold text-amber-900">
-              Peluang untuk {preferences.highlightGapFor}
+              Peluang untuk {marking.join(' & ')}
             </h2>
             <p className="mt-1 text-xs text-amber-800">
-              Toko yang sudah dilayani minimal dua divisi lain, tapi belum {preferences.highlightGapFor}.
+              Toko yang sudah dilayani minimal dua divisi lain, tapi belum {marking.join(' & ')}.
             </p>
             <div className="mt-3 flex flex-wrap gap-4">
               <div>
