@@ -11,6 +11,13 @@ LM 1500+330, Galon 15L) / 153 outlet.
 > Hanya baris yang **ada nama salesman**-nya yang diambil; baris tanpa
 > salesman dilewati dan jumlahnya dilaporkan saat build.
 
+> **Koordinat outlet bersifat opsional.** Kalau workbook memuat satu sheet
+> daftar outlet dengan kolom `KODEOUTLET`, `Latitude`, dan `Langitude`, isinya
+> otomatis disambungkan ke outlet berdasarkan kode, dan panel detail
+> menampilkan tautan ke Google Maps. Sheet itu dikenali dari judul kolomnya,
+> bukan dari namanya, dan koordinat 0,0 dianggap belum dipetakan. Tanpa sheet
+> itu semuanya tetap jalan, cuma tanpa tautan peta.
+
 > **Satuan tidak seragam.** TPH, Nipis Madu, dan LM dihitung per karton;
 > Galon 15L per galon. Kalau tab **Semua Produk** aktif, halaman memasang
 > peringatan bahwa angka gabungannya mencampur dua satuan.
@@ -36,9 +43,10 @@ LM 1500+330, Galon 15L) / 153 outlet.
   ikut berubah mengikuti filter yang aktif.
 - **Rekap Per Salesman / Per Rayon** untuk melihat pencapaian tiap orang atau
   tiap rayon.
-- **Klik satu outlet** untuk melihat detail: realisasi per minggu, target MAX
-  dan achievement-nya, tipe outlet, keterangan, zona, channel LBP, potensi
-  diskon (khusus galon), serta riwayat omset tiga kuartal dan acuan target.
+- **Klik satu outlet** untuk melihat detail: tautan **Buka di Google Maps**
+  (kalau koordinatnya ada), realisasi per minggu, target MAX dan
+  achievement-nya, tipe outlet, keterangan, zona, channel LBP, potensi diskon
+  (khusus galon), serta riwayat omset tiga kuartal dan acuan target.
 - **Unduh CSV** sesuai filter yang sedang aktif.
 
 ## Menjalankan

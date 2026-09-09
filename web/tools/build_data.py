@@ -50,6 +50,12 @@ KOLOM_WEEK = [34, 35, 36, 37, 38]
 # bukan per minggu seperti produk lain. Kolom 33 pun beda artinya.
 SATUAN_GALON = "galon"
 
+# Selain sheet produk, workbook bisa memuat satu sheet daftar outlet berisi
+# koordinat. Sheet itu dikenali dari judul kolomnya, bukan dari namanya.
+KOLOM_KOORDINAT = {"kode": ("kodeoutlet", "kode outlet"),
+                   "lat": ("latitude",),
+                   "lng": ("langitude", "longitude", "longitud")}
+
 SHEETS = {
     "POTENSI TPH": {"label": "TPH"},
     "POTENSI NMAD": {"label": "Nipis Madu"},
@@ -159,15 +165,51 @@ def read_sheet(ws, cfg):
     return hasil, tanpa_sales
 
 
+def baca_koordinat(wb):
+    """Cari sheet daftar outlet, kembalikan {kode outlet: [lat, lng]}."""
+    for ws in wb.worksheets:
+        baris = list(ws.iter_rows(max_row=1, values_only=True))
+        if not baris:
+            continue
+        judul = [text(v).lower() for v in baris[0]]
+        pos = {}
+        for kunci, kandidat in KOLOM_KOORDINAT.items():
+            for i, j in enumerate(judul):
+                if j in kandidat:
+                    pos[kunci] = i
+                    break
+        if len(pos) < 3:
+            continue
+
+        peta = {}
+        for raw in list(ws.iter_rows(values_only=True))[1:]:
+            kode = num(raw[pos["kode"]])
+            lat = num(raw[pos["lat"]])
+            lng = num(raw[pos["lng"]])
+            # 0,0 berarti outletnya belum dipetakan, bukan lokasi sungguhan.
+            if kode is None or not lat or not lng:
+                continue
+            peta[int(kode)] = [lat, lng]
+        print(f"  koordinat dari sheet '{ws.title}': {len(peta)} outlet")
+        return peta, ws.title
+    return {}, None
+
+
 def build(xlsx_path):
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
+    koordinat, sheet_koordinat = baca_koordinat(wb)
     products = []
     for ws in wb.worksheets:
         cfg = SHEETS.get(ws.title.strip())
         if cfg is None:
-            print(f"  ! sheet '{ws.title}' dilewati (belum ada tata letaknya)")
+            if ws.title != sheet_koordinat:
+                print(f"  ! sheet '{ws.title}' dilewati (belum ada tata letaknya)")
             continue
         rows, tanpa = read_sheet(ws, cfg)
+        for r in rows:
+            titik = koordinat.get(r["no"])
+            if titik:
+                r["lat"], r["lng"] = titik
         products.append({
             "id": ws.title.strip(),
             "label": cfg["label"],
@@ -176,6 +218,9 @@ def build(xlsx_path):
             "rows": rows,
         })
         catatan = f"  (+{tanpa} tanpa salesman, dilewati)" if tanpa else ""
+        berkoordinat = sum(1 for r in rows if r.get("lat"))
+        if koordinat and berkoordinat < len(rows):
+            catatan += f"  [{len(rows) - berkoordinat} tanpa koordinat]"
         print(f"  {cfg['label']:<14} {len(rows):>4} outlet{catatan}")
 
     return {

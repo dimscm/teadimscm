@@ -325,6 +325,13 @@
     if (r.zona) extra += kv(r.zonaLabel || "Zona", esc(r.zona));
     if (r.channel) extra += kv("Channel", esc(r.channel));
     if (r.diskon) extra += kv("Potensi diskon", "Rp " + fmt(r.diskon));
+
+    // Sales memakai ini di jalan, jadi alamatnya dibuat bisa langsung dibuka
+    // di aplikasi peta.
+    var peta = r.lat && r.lng
+      ? '<a class="maplink" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
+        r.lat + "," + r.lng + '">Buka di Google Maps</a>'
+      : "";
     if (r.up !== null && r.up !== undefined) extra += kv("Up target", pct(r.up));
     if (r.tgtWeek) extra += kv("Target / week", fmt(r.tgtWeek));
     if (r.ebs) {
@@ -335,7 +342,7 @@
     $("#detail").innerHTML =
       '<button class="close" id="d-close" aria-label="Tutup">✕</button>' +
       "<h2>" + esc(r.nama) + "</h2>" +
-      '<div class="addr">' + esc(r.alamat || "-") + "</div>" +
+      '<div class="addr">' + esc(r.alamat || "-") + "</div>" + peta +
       '<div class="kv">' +
       kv("Produk", esc(r.produk)) +
       kv("No outlet", r.no) +
@@ -373,7 +380,8 @@
     var rows = filtered().sort(SORTS[state.sort]);
     var head = ["Produk", "Satuan", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet",
       "Alamat", "Tipe Outlet", "Channel", "Keterangan", "Zona", "Target MID", "Target Maks"]
-      .concat(WEEKS, ["Realisasi", "Kurang MID", "Kurang Maks", "ACH MID %", "ACH Maks %"]);
+      .concat(WEEKS, ["Realisasi", "Kurang MID", "Kurang Maks", "ACH MID %", "ACH Maks %",
+        "Latitude", "Longitude"]);
 
     var lines = [head].concat(rows.map(function (r) {
       return [r.produk, r.satuan, r.sales, r.wilayah, r.no, r.nama, r.alamat, r.tipe,
@@ -381,7 +389,8 @@
         .concat(r.weeks.map(function (v) { return v === null ? "" : v; }),
           [r.total, r.kurang, r.kurangMx,
             r.ach === null ? "" : Math.round(r.ach * 100),
-            r.achMx === null ? "" : Math.round(r.achMx * 100)]);
+            r.achMx === null ? "" : Math.round(r.achMx * 100),
+            r.lat || "", r.lng || ""]);
     })).map(function (cols) {
       return cols.map(function (c) {
         var s = c === null || c === undefined ? "" : String(c);

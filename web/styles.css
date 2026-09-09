@@ -459,6 +459,20 @@ button, input, select { font: inherit; color: inherit; }
 .drawer h2 { margin: 0 40px 2px 0; font-size: 18px; letter-spacing: -.01em; }
 .drawer .addr { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
 
+.maplink {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 6px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.maplink:hover { border-color: var(--accent); background: var(--accent-soft); }
+.maplink::before { content: "📍 "; }
+
 .kv {
   display: grid;
   grid-template-columns: 1fr 1fr;
