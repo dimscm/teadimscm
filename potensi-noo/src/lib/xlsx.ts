@@ -39,14 +39,35 @@ function decodeEntities(text: string): string {
   })
 }
 
+/**
+ * indexOf that never looks past `to`.
+ *
+ * The built-in indexOf keeps scanning to the end of the string when the needle
+ * is missing. In a sheet whose last 7 MB contain no `t="` at all — Excel writes
+ * exactly that when thousands of blank-but-formatted rows are saved — asking
+ * every cell for an attribute it does not have turns the parse into hours of
+ * scanning.
+ */
+function findWithin(xml: string, needle: string, from: number, to: number): number {
+  const limit = Math.min(to, xml.length) - needle.length
+  const first = needle.charCodeAt(0)
+  for (let i = from; i <= limit; i += 1) {
+    if (xml.charCodeAt(i) !== first) continue
+    let k = 1
+    while (k < needle.length && xml.charCodeAt(i + k) === needle.charCodeAt(k)) k += 1
+    if (k === needle.length) return i
+  }
+  return -1
+}
+
 /** Value of one XML attribute on the tag that starts at `start`. */
 function attr(xml: string, start: number, end: number, name: string): string | null {
   const needle = ` ${name}="`
-  const at = xml.indexOf(needle, start)
-  if (at === -1 || at > end) return null
+  const at = findWithin(xml, needle, start, end)
+  if (at === -1) return null
   const from = at + needle.length
-  const to = xml.indexOf('"', from)
-  if (to === -1 || to > end) return null
+  const to = findWithin(xml, '"', from, end)
+  if (to === -1) return null
   return xml.slice(from, to)
 }
 
@@ -66,16 +87,16 @@ function textOf(xml: string, from: number, to: number): string {
   let out = ''
   let cursor = from
   while (cursor < to) {
-    const open = xml.indexOf('<t', cursor)
-    if (open === -1 || open >= to) break
-    const gt = xml.indexOf('>', open)
-    if (gt === -1 || gt >= to) break
+    const open = findWithin(xml, '<t', cursor, to)
+    if (open === -1) break
+    const gt = findWithin(xml, '>', open, to)
+    if (gt === -1) break
     if (xml[gt - 1] === '/') {
       cursor = gt + 1
       continue
     }
-    const close = xml.indexOf('</t>', gt)
-    if (close === -1 || close > to) break
+    const close = findWithin(xml, '</t>', gt, to)
+    if (close === -1) break
     out += xml.slice(gt + 1, close)
     cursor = close + 4
   }
@@ -127,9 +148,9 @@ function parseSheet(xml: string, shared: string[]): CellValue[][] {
     let inner = rowGt + 1
     let nextColumn = 0
     while (inner < rowEnd) {
-      const cellOpen = xml.indexOf('<c', inner)
-      if (cellOpen === -1 || cellOpen >= rowEnd) break
-      const cellGt = xml.indexOf('>', cellOpen)
+      const cellOpen = findWithin(xml, '<c', inner, rowEnd)
+      if (cellOpen === -1) break
+      const cellGt = findWithin(xml, '>', cellOpen, rowEnd)
       if (cellGt === -1) break
       const selfClosing = xml[cellGt - 1] === '/'
       const ref = attr(xml, cellOpen, cellGt, 'r')
@@ -139,15 +160,15 @@ function parseSheet(xml: string, shared: string[]): CellValue[][] {
 
       let value: CellValue = null
       if (!selfClosing) {
-        const cellClose = xml.indexOf('</c>', cellGt)
+        const cellClose = findWithin(xml, '</c>', cellGt, rowEnd)
         const cellEnd = cellClose === -1 ? rowEnd : cellClose
         if (type === 'inlineStr') {
           value = textOf(xml, cellGt, cellEnd)
         } else {
-          const vOpen = xml.indexOf('<v', cellGt)
-          if (vOpen !== -1 && vOpen < cellEnd) {
-            const vGt = xml.indexOf('>', vOpen)
-            const vClose = xml.indexOf('</v>', vGt)
+          const vOpen = findWithin(xml, '<v', cellGt, cellEnd)
+          if (vOpen !== -1) {
+            const vGt = findWithin(xml, '>', vOpen, cellEnd)
+            const vClose = findWithin(xml, '</v>', vGt, cellEnd)
             const raw = xml.slice(vGt + 1, vClose === -1 ? cellEnd : vClose)
             if (type === 's') {
               value = shared[Number(raw)] ?? ''

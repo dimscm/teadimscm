@@ -11,6 +11,7 @@ import DetailDrawer from './components/DetailDrawer'
 import SettingsSheet from './components/SettingsSheet'
 import UploadScreen from './components/UploadScreen'
 import { Sheet } from './components/bits'
+import { mappedDivisions } from './lib/dataset'
 import { formatNumber, formatRupiah } from './lib/format'
 
 type Tab = 'peta' | 'daftar' | 'ringkasan'
@@ -155,6 +156,14 @@ export default function App() {
           ⚙
         </button>
       </header>
+
+      {data && mappedDivisions(data).length < 2 && (
+        <div className="z-[1050] shrink-0 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900">
+          <strong>File ini hanya berisi divisi {mappedDivisions(data).join(', ') || '—'}.</strong> Perbandingan
+          antar-divisi butuh file yang memuat beberapa divisi sekaligus — dengan satu divisi saja, tidak ada yang bisa
+          dibandingkan untuk mencari toko yang belum digarap.
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         {preferences.showSidebar && (

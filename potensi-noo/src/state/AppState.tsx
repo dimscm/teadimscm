@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { EMPTY_FILTERS, type ColourMode, type Dataset, type Filters, type ReferencePoint, type SortKey, type VisitRecord } from '../types'
-import { materialise } from '../lib/dataset'
+import { mappedDivisions, materialise } from '../lib/dataset'
 import { runFilter, type FilterResult } from '../lib/filter'
 import * as db from '../lib/db'
 import { SyncQueue } from '../lib/sync'
@@ -109,7 +109,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       if (!alive) return
       setVisits(new Map(records.map((record) => [record.outletCode, record])))
       if (built) {
-        setData(materialise(built))
+        const dataset = materialise(built)
+        const mappable = mappedDivisions(dataset)
+        setPreferencesState((current) => ({
+          ...current,
+          highlightGapFor: current.highlightGapFor.filter((division) => mappable.includes(division)),
+        }))
+        setData(dataset)
         setStatus('ready')
       } else {
         setStatus('empty')
@@ -170,6 +176,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         return
       }
       const dataset = materialise(message.data)
+      // Marking a division the new file has no coordinates for would flag every
+      // shop as an opportunity — a confident answer built on nothing.
+      const mappable = mappedDivisions(dataset)
+      setPreferencesState((current) => ({
+        ...current,
+        highlightGapFor: current.highlightGapFor.filter((division) => mappable.includes(division)),
+      }))
       setData(dataset)
       setStatus('ready')
       setProgress(null)

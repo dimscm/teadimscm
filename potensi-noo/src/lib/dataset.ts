@@ -88,6 +88,11 @@ export function unmappedDivisions(data: Dataset): Division[] {
   return DIVISIONS.filter((division) => data.meta.perDivision[division].positioned === 0)
 }
 
+/** Divisions this file can actually say something about. */
+export function mappedDivisions(data: Dataset): Division[] {
+  return DIVISIONS.filter((division) => data.meta.perDivision[division].positioned > 0)
+}
+
 export function sortedValues(values: string[]): string[] {
   return [...values].sort((a, b) => a.localeCompare(b, 'id'))
 }
