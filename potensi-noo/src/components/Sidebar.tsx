@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useApp } from '../state/AppState'
 import { divisionCounts } from '../lib/counts'
 import { unmappedDivisions } from '../lib/dataset'
-import { exportOutlets, download } from '../lib/export'
+import { exportOutletsCsv, exportOutletsWorkbook, download } from '../lib/export'
 import { formatNumber, formatRupiah } from '../lib/format'
 import {
   DIVISIONS,
@@ -155,20 +155,30 @@ export default function Sidebar({ onOpenExport }: { onOpenExport?: () => void })
 
   if (!data) return null
 
+  const baseName = `potensi-${marking.join('-') || 'outlet'}-${new Date().toISOString().slice(0, 10)}`
   const exportButton = (
-    <button
-      type="button"
-      onClick={() => {
-        download(
-          `potensi-${marking.join('-') || 'outlet'}-${new Date().toISOString().slice(0, 10)}.csv`,
-          exportOutlets(data, result, preferences.radiusM, visits),
-        )
-        onOpenExport?.()
-      }}
-      className="mt-2.5 w-full rounded-xl bg-emerald-600 px-3 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
-    >
-      ⬇ Ekspor daftar ini ke Excel
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          download(`${baseName}.xlsx`, exportOutletsWorkbook(data, result, preferences.radiusM, visits))
+          onOpenExport?.()
+        }}
+        className="mt-2.5 w-full rounded-xl bg-emerald-600 px-3 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+      >
+        ⬇ Ekspor ke Excel (link Maps bisa diklik)
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          download(`${baseName}.csv`, exportOutletsCsv(data, result, preferences.radiusM, visits))
+          onOpenExport?.()
+        }}
+        className="mt-1.5 w-full text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+      >
+        atau unduh CSV biasa
+      </button>
+    </>
   )
 
   // ---------------------------------------------------------------- simple

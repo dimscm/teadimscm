@@ -95,9 +95,16 @@ Semua penyaring lain ada di balik tombol **Buka filter lanjutan**.
   - *Tampilan* — gabungkan toko yang sama, ikutkan baris tanpa koordinat, dan saring toko yang sudah
     atau belum dilaporkan sales.
 - **Zoom ke hasil** di atas peta memperbesar peta ke outlet yang sedang lolos filter.
-- **Ekspor** ada di kotak *Hasil* di panel kiri: file CSV berisi persis daftar yang sedang tampil,
-  lengkap dengan kolom `DIVISI YANG SUDAH MASUK`, `DIVISI YANG BELUM`, `DITANDAI PELUANG`, dan
-  `NAMA TOKO INI DI DIVISI LAIN` — bukti bahwa baris-baris itu satu toko fisik walau namanya berbeda.
+- **Ekspor** ada di kotak *Hasil* di panel kiri. Yang keluar adalah file **Excel (.xlsx)** berisi
+  persis daftar yang sedang tampil, dengan kolom `DIVISI YANG SUDAH MASUK`, `DIVISI YANG BELUM`,
+  `DITANDAI PELUANG`, `NAMA TOKO INI DI DIVISI LAIN` (bukti bahwa baris-baris itu satu toko fisik
+  walau namanya berbeda), dan `LINK MAPS` yang **tinggal diklik** — CSV tidak bisa menyimpan link
+  yang bisa diklik, jadi file .xlsx-nya ditulis sendiri oleh web ini (`src/lib/xlsx-write.ts`), pakai
+  hyperlink asli, baris judul yang dibekukan, dan filter kolom. Tautan "atau unduh CSV biasa" tetap
+  ada untuk yang butuh CSV.
+- **Panel kiri dan kanan bisa dilipat** lewat dua tombol di kanan atas, supaya peta memakai seluruh
+  layar. Pilihannya diingat sampai kunjungan berikutnya, dan tombol **Filter** tetap muncul saat
+  panel kiri disembunyikan.
 
 ## Cara pakai (sales)
 

@@ -16,6 +16,9 @@ interface Preferences {
   colourMode: ColourMode
   /** Start plain: one question, one answer. Advanced controls stay hidden. */
   simpleMode: boolean
+  /** Side panels can be folded away so the map gets the whole window. */
+  showSidebar: boolean
+  showNearby: boolean
   sortKey: SortKey
   sortDesc: boolean
   salesName: string
@@ -28,6 +31,8 @@ const DEFAULT_PREFERENCES: Preferences = {
   highlightGapFor: ['M3'],
   colourMode: 'divisi',
   simpleMode: true,
+  showSidebar: true,
+  showNearby: true,
   sortKey: 'distance',
   sortDesc: false,
   salesName: '',

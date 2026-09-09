@@ -15,6 +15,19 @@ import { formatNumber, formatRupiah } from './lib/format'
 
 type Tab = 'peta' | 'daftar' | 'ringkasan'
 
+/** A little rectangle with one side filled: which panel this button folds. */
+function PanelIcon({ side, on }: { side: 'left' | 'right'; on: boolean }) {
+  return (
+    <span
+      className={`flex h-3.5 w-5 items-center rounded-[3px] border-2 ${
+        on ? 'border-current' : 'border-current opacity-60'
+      } ${side === 'right' ? 'justify-end' : 'justify-start'}`}
+    >
+      <span className={`h-full w-1.5 bg-current ${on ? '' : 'opacity-40'}`} />
+    </span>
+  )
+}
+
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'peta', label: 'Peta', icon: '◎' },
   { key: 'daftar', label: 'Daftar', icon: '☰' },
@@ -22,7 +35,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 ]
 
 export default function App() {
-  const { status, data, result, reference, setSelected } = useApp()
+  const { status, data, result, reference, setSelected, preferences, setPreferences } = useApp()
   const [tab, setTab] = useState<Tab>('peta')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -60,15 +73,49 @@ export default function App() {
           </p>
         </div>
 
+        <div className="flex-1" />
+
         <button
           type="button"
           onClick={() => setSidebarOpen(true)}
-          className="ml-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 lg:hidden"
+          className={`rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 ${
+            preferences.showSidebar ? 'lg:hidden' : ''
+          }`}
         >
           Filter
         </button>
 
-        <div className="ml-auto hidden items-center gap-1 rounded-xl bg-slate-100 p-1 lg:flex">
+        {/* Fold either side away when the map deserves the whole window. */}
+        <div className="hidden items-center gap-1 lg:flex">
+          <button
+            type="button"
+            onClick={() => setPreferences({ showSidebar: !preferences.showSidebar })}
+            title={preferences.showSidebar ? 'Sembunyikan panel kiri' : 'Tampilkan panel kiri'}
+            aria-label={preferences.showSidebar ? 'Sembunyikan panel kiri' : 'Tampilkan panel kiri'}
+            className={`flex h-9 w-9 items-center justify-center rounded-xl border text-base transition ${
+              preferences.showSidebar
+                ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                : 'border-slate-900 bg-slate-900 text-white'
+            }`}
+          >
+            <PanelIcon side="left" on={preferences.showSidebar} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreferences({ showNearby: !preferences.showNearby })}
+            title={preferences.showNearby ? 'Sembunyikan panel kanan' : 'Tampilkan panel kanan'}
+            aria-label={preferences.showNearby ? 'Sembunyikan panel kanan' : 'Tampilkan panel kanan'}
+            className={`flex h-9 w-9 items-center justify-center rounded-xl border text-base transition ${
+              preferences.showNearby
+                ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                : 'border-slate-900 bg-slate-900 text-white'
+            }`}
+          >
+            <PanelIcon side="right" on={preferences.showNearby} />
+          </button>
+        </div>
+
+        <div className="hidden items-center gap-1 rounded-xl bg-slate-100 p-1 lg:flex">
           {TABS.map((item) => (
             <button
               key={item.key}
@@ -110,9 +157,11 @@ export default function App() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-[360px] shrink-0 border-r border-slate-200 bg-white lg:block xl:w-[400px]">
-          <Sidebar />
-        </aside>
+        {preferences.showSidebar && (
+          <aside className="hidden w-[360px] shrink-0 border-r border-slate-200 bg-white lg:block xl:w-[400px]">
+            <Sidebar />
+          </aside>
+        )}
 
         <main className="relative min-h-0 min-w-0 flex-1">
           {tab === 'peta' && (
@@ -133,7 +182,11 @@ export default function App() {
               <div className="pointer-events-none absolute bottom-3 left-3 z-[900] hidden lg:block">
                 <MapLegend />
               </div>
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[900] flex justify-center xl:hidden">
+              <div
+                className={`pointer-events-none absolute inset-x-0 bottom-0 z-[900] flex justify-center ${
+                  preferences.showNearby ? 'xl:hidden' : ''
+                }`}
+              >
                 <NearbyPanel onOpenDetail={setSelected} />
               </div>
             </>
@@ -142,7 +195,7 @@ export default function App() {
           {tab === 'ringkasan' && <Dashboard />}
         </main>
 
-        {tab === 'peta' && (
+        {tab === 'peta' && preferences.showNearby && (
           <aside className="hidden w-[340px] shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-3 xl:block">
             <NearbyPanel onOpenDetail={setSelected} variant="panel" />
           </aside>

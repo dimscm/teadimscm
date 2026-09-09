@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useApp } from '../state/AppState'
 import { coverageMask, countDivisions, outletKecamatan, unmappedDivisions } from '../lib/dataset'
-import { exportOutlets, exportVisits, download } from '../lib/export'
+import { exportOutletsWorkbook, exportVisitsWorkbook, download } from '../lib/export'
 import { formatDateTime, formatNumber, formatRupiah } from '../lib/format'
 import { DIVISIONS, DIVISION_COLORS, DIVISION_LABELS } from '../types'
 import { DivisionDot, Stat } from './bits'
@@ -179,8 +179,8 @@ export default function Dashboard() {
               type="button"
               onClick={() =>
                 download(
-                  `outlet-terfilter-${new Date().toISOString().slice(0, 10)}.csv`,
-                  exportOutlets(data, result, preferences.radiusM, visits),
+                  `outlet-terfilter-${new Date().toISOString().slice(0, 10)}.xlsx`,
+                  exportOutletsWorkbook(data, result, preferences.radiusM, visits),
                 )
               }
               className="rounded-xl bg-slate-900 px-3 py-3 text-sm font-semibold text-white"
@@ -190,7 +190,10 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() =>
-                download(`laporan-survey-${new Date().toISOString().slice(0, 10)}.csv`, exportVisits(data, visits))
+                download(
+                  `laporan-survey-${new Date().toISOString().slice(0, 10)}.xlsx`,
+                  exportVisitsWorkbook(data, visits),
+                )
               }
               disabled={visits.size === 0}
               className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-800 disabled:opacity-50"
@@ -199,7 +202,8 @@ export default function Dashboard() {
             </button>
           </div>
           <p className="mt-2 text-[11px] text-slate-500">
-            File CSV terbuka langsung di Excel. Kirim file laporan survey ke kantor untuk digabung ke database.
+            File Excel (.xlsx) — kolom <strong>LINK MAPS</strong> tinggal diklik untuk membuka lokasi tokonya. Kirim
+            file laporan survey ke kantor untuk digabung ke database.
             {filters.onlyGap && ' Daftar tampil sedang dibatasi ke toko bertanda saja.'}
           </p>
         </section>
