@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Master Target Outlet</title>
-<meta name="description" content="Penelusur target dan realisasi outlet per produk, salesman, dan subdist.">
+<meta name="description" content="Penelusur target dan realisasi outlet per produk, salesman, dan rayon.">
 <meta name="theme-color" content="#2f6b4f">
 <meta name="color-scheme" content="light dark">
 <!-- Ikon ditulis inline supaya halaman tetap satu berkas dan enak dipasang
@@ -50,6 +50,10 @@
       <label for="f-tipe">Tipe outlet</label>
       <select id="f-tipe"><option value="">Semua tipe</option></select>
     </div>
+    <div class="field" id="f-ket-wrap">
+      <label for="f-ket">Keterangan</label>
+      <select id="f-ket"><option value="">Semua keterangan</option></select>
+    </div>
     <div class="field">
       <label for="f-status">Status</label>
       <select id="f-status">
@@ -66,6 +70,7 @@
   </div>
 
   <section class="cards" id="summary" aria-label="Ringkasan"></section>
+  <p class="note" id="satuan-note" hidden></p>
 
   <div class="controls">
     <div class="seg" id="views">

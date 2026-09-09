@@ -15,11 +15,13 @@
       r.produk = p.label;
       r.produkId = p.id;
       r.zonaLabel = p.zonaLabel;
+      r.satuan = p.satuan || "";
       r.uid = p.id + "#" + i;
       r.ach = r.tgt > 0 ? r.total / r.tgt : null;
       r.kurang = Math.max(r.tgt - r.total, 0);
       r.cari = (r.nama + " " + r.no + " " + r.alamat + " " + r.sales + " " +
-        r.wilayah + " " + (r.tipe || "")).toLowerCase();
+        r.wilayah + " " + (r.tipe || "") + " " + (r.ket || "") + " " +
+        (r.channel || "")).toLowerCase();
       ROWS.push(r);
     });
   });
@@ -31,6 +33,7 @@
     wilayah: "",
     zona: "",
     tipe: "",
+    ket: "",
     status: "",
     view: "outlet",
     sort: "kurang"
@@ -85,6 +88,7 @@
     if (skip !== "wilayah" && state.wilayah && r.wilayah !== state.wilayah) return false;
     if (skip !== "zona" && state.zona && r.zona !== state.zona) return false;
     if (skip !== "tipe" && state.tipe && r.tipe !== state.tipe) return false;
+    if (skip !== "ket" && state.ket && r.ket !== state.ket) return false;
     if (skip !== "status" && state.status && statusOf(r) !== state.status) return false;
 
     var terms = state.q.trim().toLowerCase().split(/\s+/);
@@ -133,7 +137,7 @@
 
     // Filter yang cuma punya satu nilai tidak menyaring apa pun — sembunyikan
     // saja supaya baris filter tidak penuh, terutama di layar HP.
-    ["wilayah", "zona", "tipe"].forEach(function (key) {
+    ["wilayah", "zona", "tipe", "ket"].forEach(function (key) {
       var nilai = optionsFor(key);
       var cukup = nilai.length > 1;
       $("#f-" + key + "-wrap").hidden = !cukup;
@@ -173,6 +177,13 @@
       card("Kekurangan", fmt(t.kur), "sisa ke target") +
       '<div class="card ach"><div class="k">Achievement</div><div class="v num">' + pct(t.ach) +
       '</div><div class="bar"><i style="width:' + w.toFixed(1) + '%"></i></div></div>';
+
+    // Galon dihitung per galon, produk lain per karton — kalau keduanya ikut
+    // tersaring, angka gabungannya mencampur dua satuan.
+    var satuan = uniq(rows, "satuan");
+    var nota = $("#satuan-note");
+    nota.hidden = satuan.length < 2;
+    nota.textContent = "Angka gabungan mencampur satuan " + satuan.join(" dan ") + ".";
   }
 
   function card(k, v, m) {
@@ -276,9 +287,16 @@
     }).join("");
 
     var extra = "";
+    if (r.tgtMax && r.tgtMax !== r.tgt) {
+      extra += kv("Target maks", fmt(r.tgtMax));
+      extra += '<div><div class="k">ACH vs maks</div><div class="v"><span class="pill ' +
+        achClass(r.total / r.tgtMax) + '">' + pct(r.total / r.tgtMax) + "</span></div></div>";
+    }
     if (r.tipe) extra += kv("Tipe outlet", esc(r.tipe));
+    if (r.ket) extra += kv("Keterangan", esc(r.ket));
     if (r.zona) extra += kv(r.zonaLabel || "Zona", esc(r.zona));
-    if (r.spk) extra += kv("Status SPK", esc(r.spk));
+    if (r.channel) extra += kv("Channel", esc(r.channel));
+    if (r.diskon) extra += kv("Potensi diskon", "Rp " + fmt(r.diskon));
     if (r.up !== null && r.up !== undefined) extra += kv("Up target", pct(r.up));
     if (r.tgtWeek) extra += kv("Target / week", fmt(r.tgtWeek));
     if (r.ebs) {
@@ -295,7 +313,7 @@
       kv("No outlet", r.no) +
       kv("Salesman", esc(r.sales)) +
       kv(LBL_WILAYAH, esc(r.wilayah)) +
-      kv("Target", fmt(r.tgt)) +
+      kv("Target" + (r.satuan ? " (" + r.satuan + ")" : ""), fmt(r.tgt)) +
       kv("Realisasi", fmt(r.total)) +
       kv("Kekurangan", fmt(r.kurang)) +
       '<div><div class="k">Achievement</div><div class="v"><span class="pill ' + achClass(r.ach) +
@@ -325,11 +343,13 @@
   /* ── Ekspor CSV sesuai filter aktif ───────────────────────────────── */
   function exportCsv() {
     var rows = filtered().sort(SORTS[state.sort]);
-    var head = ["Produk", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet", "Alamat",
-      "Tipe Outlet", "Zona", "Target"].concat(WEEKS, ["Realisasi", "Kekurangan", "ACH %"]);
+    var head = ["Produk", "Satuan", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet",
+      "Alamat", "Tipe Outlet", "Channel", "Keterangan", "Zona", "Target", "Target Maks"]
+      .concat(WEEKS, ["Realisasi", "Kekurangan", "ACH %"]);
 
     var lines = [head].concat(rows.map(function (r) {
-      return [r.produk, r.sales, r.wilayah, r.no, r.nama, r.alamat, r.tipe, r.zona, r.tgt]
+      return [r.produk, r.satuan, r.sales, r.wilayah, r.no, r.nama, r.alamat, r.tipe,
+        r.channel, r.ket, r.zona, r.tgt, r.tgtMax]
         .concat(r.weeks.map(function (v) { return v === null ? "" : v; }),
           [r.total, r.kurang, r.ach === null ? "" : Math.round(r.ach * 100)]);
     })).map(function (cols) {
@@ -449,14 +469,15 @@
       timer = setTimeout(function () { state.q = q.value; render(); }, 120);
     });
 
-    ["sales", "wilayah", "zona", "tipe", "status"].forEach(function (k) {
+    ["sales", "wilayah", "zona", "tipe", "ket", "status"].forEach(function (k) {
       $("#f-" + k).addEventListener("change", function (e) { state[k] = e.target.value; render(); });
     });
 
     $("#f-sort").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
 
     $("#reset").addEventListener("click", function () {
-      state.q = state.sales = state.wilayah = state.zona = state.tipe = state.status = "";
+      state.q = state.sales = state.wilayah = state.zona = "";
+      state.tipe = state.ket = state.status = "";
       q.value = "";
       $("#f-status").value = "";
       render();

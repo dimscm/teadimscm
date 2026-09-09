@@ -5,29 +5,37 @@ produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **September 2026 (W35–W39)**, dari
-`target_september.xlsx`, 5 produk / 50 outlet.
+`TARGET_SEPTEMBER_TOKO_AI.xlsx` — 5 produk (TPH, Nipis Madu, LM 600,
+LM 1500+330, Galon 15L) / 153 outlet.
 
-> Hanya baris yang **ada nama salesman**-nya yang diambil. Workbook target
-> memuat seluruh outlet se-region, termasuk milik subdist lain yang tidak
-> dipegang tim ini — baris tanpa salesman dilewati, dan jumlahnya dilaporkan
-> saat build.
+> Hanya baris yang **ada nama salesman**-nya yang diambil; baris tanpa
+> salesman dilewati dan jumlahnya dilaporkan saat build.
+
+> **Satuan tidak seragam.** TPH, Nipis Madu, dan LM dihitung per karton;
+> Galon 15L per galon. Kalau tab **Semua Produk** aktif, halaman memasang
+> peringatan bahwa angka gabungannya mencampur dua satuan.
+
+> **Target ada dua versi.** Workbook memberi TGT MID dan TGT MAX. Yang dipakai
+> di tabel dan ringkasan adalah **MID**; target MAX dan achievement-nya
+> ditampilkan di panel detail kalau nilainya berbeda.
 
 ## Yang bisa dilakukan
 
 - **Pilih produk** lewat tab di atas, atau **Semua Produk** untuk gabungannya.
 - **Cari outlet** dengan mengetik nama outlet, nomor outlet, atau alamat. Bisa
   beberapa kata sekaligus, mis. `rifai agen` atau `2038524`.
-- **Filter** salesman, subdist, zona, tipe outlet (SO / GROMIN / GROSIR), dan
-  status pencapaian (belum ada order, di bawah 50%, 50–99%, 100% ke atas). Isi
-  tiap dropdown menyesuaikan filter lain, jadi tidak pernah menghasilkan
-  daftar kosong; filter yang isinya cuma satu nilai ikut disembunyikan.
+- **Filter** salesman, rayon, zona, tipe outlet (SO / GROMIN / GROSIR),
+  keterangan (FIX IKAT TARGET / POTENSI), dan status pencapaian (belum ada
+  order, di bawah 50%, 50–99%, 100% ke atas). Isi tiap dropdown menyesuaikan
+  filter lain, jadi tidak pernah menghasilkan daftar kosong; filter yang
+  isinya cuma satu nilai ikut disembunyikan.
 - **Ringkasan** jumlah outlet, target, realisasi, kekurangan, dan achievement
   ikut berubah mengikuti filter yang aktif.
-- **Rekap Per Salesman / Per Subdist** untuk melihat pencapaian tiap orang
-  atau tiap subdist.
-- **Klik satu outlet** untuk melihat detail: realisasi per minggu, status SPK,
-  zona, dan riwayat omset (kuartal-kuartal sebelumnya, rata-rata per minggu,
-  acuan target). Untuk LM 1500+330, rincian per ukuran ikut ditampilkan.
+- **Rekap Per Salesman / Per Rayon** untuk melihat pencapaian tiap orang atau
+  tiap rayon.
+- **Klik satu outlet** untuk melihat detail: realisasi per minggu, target MAX
+  dan achievement-nya, tipe outlet, keterangan, zona, channel LBP, potensi
+  diskon (khusus galon), serta riwayat omset tiga kuartal dan acuan target.
 - **Unduh CSV** sesuai filter yang sedang aktif.
 
 ## Menjalankan
@@ -74,12 +82,13 @@ Yang perlu disesuaikan di `build_data.py` tiap ganti bulan:
 |---|---|
 | `PERIODE` | mis. `"Oktober 2026"` — dipakai di judul dan nama berkas CSV |
 | `WEEK_LABELS` | minggu bulan itu, mis. `["W40", …]`. Jumlahnya bebas; lebar kolom di web ikut menyesuaikan |
-| `SHEETS` | nama sheet, label produk, baris awal data, dan indeks kolom target/minggu |
+| `SHEETS` | nama sheet dan label produknya (tandai `"galon": True` untuk sheet galon) |
+| `KOLOM`, `KOLOM_WEEK` | hanya kalau susunan kolomnya benar-benar bergeser |
 
-Indeks kolomnya 0-based (kolom A = 0, B = 1, …), dan blok tiap bulan bergeser
-ke kanan di workbook yang sama — mis. di `LM 600` blok Juli mulai kolom 35,
-Agustus 51, September 67. Sheet yang belum terdaftar dilewati dengan
-peringatan, bukan bikin error.
+Indeks kolomnya 0-based (kolom A = 0, B = 1, …). Judul blok omset dan nama
+bulannya dibaca langsung dari baris header sheet, jadi tidak perlu diketik
+ulang tiap bulan. Sheet yang belum terdaftar dilewati dengan peringatan,
+bukan bikin error.
 
 Angka realisasi, kekurangan, dan achievement dihitung ulang dari kolom minggu
 dan kolom target, bukan disalin dari rumus Excel. Hasilnya dicocokkan ke

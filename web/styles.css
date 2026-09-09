@@ -175,7 +175,7 @@ button, input, select { font: inherit; color: inherit; }
   margin: 14px 0;
 }
 
-.filters .field { flex: 1 1 140px; }
+.filters .field { flex: 1 1 165px; }
 .filters .field:first-child { flex: 2 1 240px; }
 .filters .field.end { flex: 0 0 auto; }
 
@@ -249,6 +249,16 @@ button, input, select { font: inherit; color: inherit; }
   margin-top: 7px;
 }
 .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+
+.note {
+  margin: -6px 0 12px;
+  padding: 7px 11px;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+}
 
 /* ── Baris kontrol ────────────────────────────────────────────────────── */
 .controls {
