@@ -25,6 +25,7 @@
       r.achMx = r.tgtMx > 0 ? r.total / r.tgtMx : null;
       r.kurangMx = Math.max(r.tgtMx - r.total, 0);
       r.duaTarget = r.tgtMx !== r.tgt;
+      r.sisaCb = r.cb ? r.cb.sisa : 0;
       r.cari = (r.nama + " " + r.no + " " + r.alamat + " " + r.sales + " " +
         r.wilayah + " " + (r.tipe || "") + " " + (r.ket || "") + " " +
         (r.channel || "")).toLowerCase();
@@ -52,6 +53,18 @@
     if (n === null || n === undefined || isNaN(n)) return "–";
     return nf0.format(Math.round(n));
   }
+
+  function rp(n) {
+    if (n === null || n === undefined || isNaN(n)) return "–";
+    return "Rp " + nf0.format(Math.round(n));
+  }
+
+  var CB_STATUS = {
+    aman: { teks: "Target tercapai — cashback aman", kelas: "good" },
+    kurang: { teks: "Belum tercapai — sisa masih bisa dikejar", kelas: "warn" },
+    gugur: { teks: "Terancam gugur — turun dua zona dari SPK", kelas: "crit" },
+    nol: { teks: "Belum ada order — cashback hangus kalau dibiarkan", kelas: "crit" }
+  };
 
   function pct(a) {
     if (a === null || a === undefined) return "–";
@@ -114,6 +127,7 @@
     achDesc: function (a, b) { return (b.ach === null ? -1 : b.ach) - (a.ach === null ? -1 : a.ach); },
     totalDesc: function (a, b) { return b.total - a.total; },
     kurangMax: function (a, b) { return b.kurangMx - a.kurangMx; },
+    cbSisa: function (a, b) { return b.sisaCb - a.sisaCb; },
     achMaxAsc: function (a, b) { return (a.achMx === null ? -1 : a.achMx) - (b.achMx === null ? -1 : b.achMx); },
     tgtDesc: function (a, b) { return b.tgt - a.tgt; },
     nama: function (a, b) { return a.nama.localeCompare(b.nama); },
@@ -163,8 +177,15 @@
 
   /* ── Ringkasan ────────────────────────────────────────────────────── */
   function totals(rows) {
-    var t = { n: rows.length, tgt: 0, tgtMx: 0, tot: 0, kur: 0, kurMx: 0, nol: 0, ok: 0, okMx: 0 };
+    var t = { n: rows.length, tgt: 0, tgtMx: 0, tot: 0, kur: 0, kurMx: 0, nol: 0, ok: 0, okMx: 0,
+      cbNow: 0, cbTgt: 0, cbSisa: 0, cbGugur: 0 };
     rows.forEach(function (r) {
+      if (r.cb) {
+        t.cbNow += r.cb.now;
+        t.cbTgt += r.cb.target;
+        t.cbSisa += r.cb.sisa;
+        if (r.cb.status === "gugur" || r.cb.status === "nol") t.cbGugur += r.cb.sisa;
+      }
       t.tgt += r.tgt;
       t.tgtMx += r.tgtMx;
       t.tot += r.total;
@@ -190,6 +211,7 @@
         ? t.ok + " capai MID · " + t.okMx + " capai maks"
         : t.ok + " outlet tercapai") +
       card("Kekurangan", fmt(t.kur), t.duaTarget ? "maks " + fmt(t.kurMx) : "sisa ke target") +
+      card("Sisa cashback", rp(t.cbSisa), "aman sekarang " + rp(t.cbNow)) +
       '<div class="card ach"><div class="k">Achievement</div><div class="v num">' + pct(t.ach) +
       '</div><div class="bar"><i style="width:' + w.toFixed(1) + '%"></i></div>' +
       (t.duaTarget ? '<div class="m num">maks ' + pct(t.achMx) + "</div>" : "") + "</div>";
@@ -324,7 +346,6 @@
     if (r.ket) extra += kv("Keterangan", esc(r.ket));
     if (r.zona) extra += kv(r.zonaLabel || "Zona", esc(r.zona));
     if (r.channel) extra += kv("Channel", esc(r.channel));
-    if (r.diskon) extra += kv("Potensi diskon", "Rp " + fmt(r.diskon));
 
     // Sales memakai ini di jalan, jadi alamatnya dibuat bisa langsung dibuka
     // di aplikasi peta.
@@ -339,10 +360,33 @@
       extra += kv("Kurang EBS " + pct(r.ebs), fmt(need));
     }
 
+    var cb = "";
+    if (r.cb) {
+      var st = CB_STATUS[r.cb.status] || CB_STATUS.kurang;
+      cb = '<div class="sec">Cashback bulan ini</div>' +
+        '<div class="cb"><div class="cb-k">Sisa cashback</div>' +
+        '<div class="cb-v num">' + rp(r.cb.sisa) + "</div>" +
+        '<div class="pill ' + st.kelas + ' cb-st">' + esc(st.teks) + "</div>" +
+        (r.cb.kurangUnit > 0
+          ? '<div class="cb-m">Ambil <b>' + fmt(r.cb.kurangUnit) + " " + esc(r.satuan || "crt") +
+            "</b> lagi sebelum akhir bulan.</div>"
+          : '<div class="cb-m">Target bulan ini sudah terlampaui.</div>') +
+        "</div>" +
+        hist2("Cashback aman sekarang", rp(r.cb.now)) +
+        hist2("Kalau target tercapai", rp(r.cb.target)) +
+        hist2("Tarif sekarang", r.cb.tarif ? rp(r.cb.tarif) + " / " + esc(r.satuan || "crt") +
+          (r.cb.zona ? " (zona " + esc(r.cb.zona) + ")" : "") : "belum masuk strata") +
+        hist2("Tarif di target", r.cb.tarifTgt ? rp(r.cb.tarifTgt) + " / " + esc(r.satuan || "crt") +
+          (r.cb.zonaTgt ? " (zona " + esc(r.cb.zonaTgt) + ")" : "") : "–") +
+        (r.cb.syaratAch ? hist2("Syarat", "hanya dibayar kalau target tercapai") : "") +
+        '<div class="sec">Rincian outlet</div>';
+    }
+
     $("#detail").innerHTML =
       '<button class="close" id="d-close" aria-label="Tutup">✕</button>' +
       "<h2>" + esc(r.nama) + "</h2>" +
       '<div class="addr">' + esc(r.alamat || "-") + "</div>" + peta +
+      cb +
       '<div class="kv">' +
       kv("Produk", esc(r.produk)) +
       kv("No outlet", r.no) +
@@ -365,6 +409,10 @@
     $("#d-close").addEventListener("click", closeDetail);
   }
 
+  function hist2(k, v) {
+    return '<div class="hist"><span class="k">' + esc(k) + '</span><span class="v">' + v + "</span></div>";
+  }
+
   function kv(k, v) {
     return '<div><div class="k">' + k + '</div><div class="v">' + v + "</div></div>";
   }
@@ -381,7 +429,8 @@
     var head = ["Produk", "Satuan", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet",
       "Alamat", "Tipe Outlet", "Channel", "Keterangan", "Zona", "Target MID", "Target Maks"]
       .concat(WEEKS, ["Realisasi", "Kurang MID", "Kurang Maks", "ACH MID %", "ACH Maks %",
-        "Latitude", "Longitude"]);
+        "Tarif Cashback", "Cashback Sekarang", "Cashback Jika Target", "Sisa Cashback",
+        "Status Cashback", "Latitude", "Longitude"]);
 
     var lines = [head].concat(rows.map(function (r) {
       return [r.produk, r.satuan, r.sales, r.wilayah, r.no, r.nama, r.alamat, r.tipe,
@@ -390,6 +439,8 @@
           [r.total, r.kurang, r.kurangMx,
             r.ach === null ? "" : Math.round(r.ach * 100),
             r.achMx === null ? "" : Math.round(r.achMx * 100),
+            r.cb ? r.cb.tarif : "", r.cb ? r.cb.now : "", r.cb ? r.cb.target : "",
+            r.cb ? r.cb.sisa : "", r.cb ? r.cb.status : "",
             r.lat || "", r.lng || ""]);
     })).map(function (cols) {
       return cols.map(function (c) {

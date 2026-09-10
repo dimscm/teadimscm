@@ -29,6 +29,53 @@ LM 1500+330, Galon 15L) / 153 outlet.
 > panel detail. Baris yang MID dan maks-nya sama tidak menampilkan baris
 > kedua. Di CSV keduanya jadi kolom sendiri.
 
+## Cashback
+
+Klik satu outlet, dan bagian paling atas panel detail menjawab dua hal yang
+ditanyakan sales di depan toko: **target bulan ini** dan **sisa cashback** —
+berapa rupiah yang masih bisa didapat toko itu kalau targetnya dikejar sampai
+akhir bulan.
+
+Cashback dihitung dari tabel strata program, bukan disalin dari kolom mana
+pun:
+
+> **cashback = omset x tarif zona**, dan **zona ditentukan volume omset**,
+> bukan oleh targetnya.
+
+Artinya tarif per karton ikut naik kalau toko naik zona, dan berlaku untuk
+seluruh volume bulan itu. Yang ditampilkan:
+
+| Baris | Arti |
+|---|---|
+| Sisa cashback | selisih antara cashback kalau target tercapai dan yang sudah aman sekarang |
+| Cashback aman sekarang | yang sudah dikunci omset berjalan, kalau bulan ditutup hari ini |
+| Kalau target tercapai | cashback pada target bulan ini |
+| Tarif sekarang / di target | rupiah per karton beserta zonanya |
+
+Aturan yang berbeda per program, semuanya dari form monitoring resmi:
+
+- **Nipis Madu** hanya membayar kalau ACH mencapai 100%. Program lain membayar
+  mengikuti volume berapa pun yang masuk strata.
+- **LM 600 dan LM 1500+330** menggugurkan cashback kalau zona akhir jatuh dua
+  tingkat atau lebih di bawah zona SPK. Turun satu tingkat masih dibayar.
+- **Galon 15L** memakai tarif per galon, berbeda antara SO dan GROMIN.
+- **LM 1500+330** tarifnya berbeda antara ukuran 1500ML dan 330ML, sedangkan
+  file target hanya memuat jumlah keduanya. Komposisi tiap outlet diambil dari
+  riwayat bulan sebelumnya lewat `--mix` (lihat di bawah); tanpa itu semuanya
+  dianggap 1500ML dan angkanya jadi terlalu tinggi.
+
+Tabel strata ada di `tools/cashback.py`, dan `tools/uji_cashback.py`
+menghitung ulang kolom cashback yang sudah tercetak di form monitoring
+Agustus 2026 lalu membandingkannya baris per baris — 367 baris, semuanya
+cocok. Jalankan itu tiap kali tabel strata diubah:
+
+```bash
+python3 web/tools/uji_cashback.py <folder berisi form monitoring>
+```
+
+> Bonus triwulan Juli–September **belum** masuk web, karena hasil triwulannya
+> memang belum keluar. Yang dihitung hanya bulan berjalan.
+
 ## Yang bisa dilakukan
 
 - **Pilih produk** lewat tab di atas, atau **Semua Produk** untuk gabungannya.
@@ -43,10 +90,11 @@ LM 1500+330, Galon 15L) / 153 outlet.
   ikut berubah mengikuti filter yang aktif.
 - **Rekap Per Salesman / Per Rayon** untuk melihat pencapaian tiap orang atau
   tiap rayon.
-- **Klik satu outlet** untuk melihat detail: tautan **Buka di Google Maps**
-  (kalau koordinatnya ada), realisasi per minggu, target MAX dan
-  achievement-nya, tipe outlet, keterangan, zona, channel LBP, potensi diskon
-  (khusus galon), serta riwayat omset tiga kuartal dan acuan target.
+- **Klik satu outlet** untuk melihat sisa cashback dan target bulan ini di
+  paling atas, lalu tautan **Buka di Google Maps** (kalau koordinatnya ada),
+  realisasi per minggu, target MAX dan achievement-nya, tipe outlet,
+  keterangan, zona, channel LBP, serta riwayat omset tiga kuartal dan acuan
+  target.
 - **Unduh CSV** sesuai filter yang sedang aktif.
 
 ## Menjalankan
@@ -83,9 +131,13 @@ beres.
 ## Memperbarui data bulan berikutnya
 
 ```bash
-python3 web/tools/build_data.py target_oktober.xlsx   # tulis ulang web/data.js
-python3 web/tools/build_single.py                     # tulis ulang dist/ + docs/
+python3 web/tools/build_data.py target_oktober.xlsx \
+    --mix FORM_MONITORING_IKAT_TARGET_LM_1500330ml.xls   # tulis ulang web/data.js
+python3 web/tools/build_single.py                        # tulis ulang dist/ + docs/
 ```
+
+`--mix` bersifat opsional dan hanya dipakai untuk memisahkan tarif LM 1500ML
+dan 330ML; tanpa itu build tetap jalan.
 
 Yang perlu disesuaikan di `build_data.py` tiap ganti bulan:
 
@@ -114,4 +166,6 @@ seluruh baris workbook tiap kali data diperbarui.
 | `app.js` | filter, pencarian, rekap, panel detail, ekspor CSV |
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
 | `tools/build_data.py` | Excel → `data.js` |
+| `tools/cashback.py` | tabel strata dan aturan cashback tiap program |
+| `tools/uji_cashback.py` | uji tabel strata terhadap form monitoring resmi |
 | `tools/build_single.py` | gabung semuanya jadi satu berkas HTML + `docs/index.html` |

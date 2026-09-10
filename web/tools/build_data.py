@@ -20,6 +20,9 @@ from pathlib import Path
 
 import openpyxl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cashback  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 
 PERIODE = "September 2026"
@@ -57,11 +60,11 @@ KOLOM_KOORDINAT = {"kode": ("kodeoutlet", "kode outlet"),
                    "lng": ("langitude", "longitude", "longitud")}
 
 SHEETS = {
-    "POTENSI TPH": {"label": "TPH"},
-    "POTENSI NMAD": {"label": "Nipis Madu"},
-    "POTENSI LM 600": {"label": "LM 600"},
-    "POTENSI LM 1500+330": {"label": "LM 1500+330"},
-    "POTENSI GALON 15L": {"label": "Galon 15L", "galon": True},
+    "POTENSI TPH": {"label": "TPH", "program": "TPH"},
+    "POTENSI NMAD": {"label": "Nipis Madu", "program": "NMAD"},
+    "POTENSI LM 600": {"label": "LM 600", "program": "LM600"},
+    "POTENSI LM 1500+330": {"label": "LM 1500+330", "program": "LM1500"},
+    "POTENSI GALON 15L": {"label": "Galon 15L", "galon": True, "program": "GALON"},
 }
 
 BULAN = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN",
@@ -195,9 +198,10 @@ def baca_koordinat(wb):
     return {}, None
 
 
-def build(xlsx_path):
+def build(xlsx_path, mix_path=None):
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     koordinat, sheet_koordinat = baca_koordinat(wb)
+    mix = baca_mix_lm1500(mix_path) if mix_path else {}
     products = []
     for ws in wb.worksheets:
         cfg = SHEETS.get(ws.title.strip())
@@ -210,6 +214,8 @@ def build(xlsx_path):
             titik = koordinat.get(r["no"])
             if titik:
                 r["lat"], r["lng"] = titik
+            r["cb"] = cashback.hitung(cfg["program"], r["tipe"], r["tgt"], r["total"],
+                                      share1500=mix.get(r["no"]))
         products.append({
             "id": ws.title.strip(),
             "label": cfg["label"],
@@ -235,14 +241,54 @@ def build(xlsx_path):
     }
 
 
+def baca_mix_lm1500(path):
+    """Bagian omset LM 1500ML terhadap total 1500+330 per outlet, dari form
+    monitoring bulan lalu.
+
+    Tarif cashback LM 1500ML dan 330ML berbeda, sedangkan file target hanya
+    memuat jumlah keduanya. Komposisi tiap outlet diambil dari bulan terakhir
+    yang datanya lengkap; outlet tanpa riwayat memakai rata-rata semua outlet.
+    """
+    import xlrd
+
+    s = xlrd.open_workbook(path).sheet_by_name("MONITORING LM Q3.2026")
+    mix = {}
+    jum15 = jum33 = 0
+    for i in range(7, s.nrows):
+        kode = s.cell_value(i, 4)
+        if not isinstance(kode, (int, float)):
+            continue
+        v15 = s.cell_value(i, 63)
+        v33 = s.cell_value(i, 68)
+        v15 = v15 if isinstance(v15, (int, float)) else 0
+        v33 = v33 if isinstance(v33, (int, float)) else 0
+        if v15 + v33 <= 0:
+            continue
+        mix[int(kode)] = v15 / (v15 + v33)
+        jum15 += v15
+        jum33 += v33
+
+    if jum15 + jum33:
+        rata = jum15 / (jum15 + jum33)
+        print(f"  campuran LM 1500ML: {len(mix)} outlet berriwayat, "
+              f"rata-rata {rata * 100:.0f}% ukuran 1500ML")
+    return mix
+
+
 def main():
     if len(sys.argv) < 2:
-        sys.exit("Pakai: python3 web/tools/build_data.py <berkas.xlsx>")
+        sys.exit("Pakai: python3 web/tools/build_data.py <berkas.xlsx> [--mix <form_lm1500.xls>]")
     xlsx = Path(sys.argv[1])
     if not xlsx.exists():
         sys.exit(f"File tidak ditemukan: {xlsx}")
 
-    data = build(xlsx)
+    mix_path = None
+    if "--mix" in sys.argv:
+        mix_path = Path(sys.argv[sys.argv.index("--mix") + 1])
+        if not mix_path.exists():
+            sys.exit(f"File tidak ditemukan: {mix_path}")
+
+    data = build(xlsx, mix_path)
     out = ROOT / "data.js"
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     out.write_text(

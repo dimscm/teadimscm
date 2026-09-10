@@ -213,7 +213,8 @@ button, input, select { font: inherit; color: inherit; }
 /* ── Ringkasan ────────────────────────────────────────────────────────── */
 .cards {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* Jumlah kartu ikut data (cashback hanya muncul kalau tarifnya ada). */
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -501,6 +502,34 @@ button, input, select { font: inherit; color: inherit; }
   padding-bottom: 5px;
   border-bottom: 1px solid var(--line);
 }
+
+/* Blok cashback: satu angka besar yang jadi alasan sales membuka panel ini. */
+.cb {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 4px;
+}
+
+.cb-k {
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cb-v {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--accent);
+  line-height: 1.15;
+}
+
+.cb-st { display: inline-block; margin: 6px 0 2px; min-width: 0; }
+.cb-m { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+.cb-m b { font-variant-numeric: tabular-nums; }
 
 .wk { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
 .wk .lbl { width: 38px; font-size: 12px; color: var(--muted); }
