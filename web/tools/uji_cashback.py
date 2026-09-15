@@ -3,48 +3,45 @@
 
 Form monitoring sudah memuat kolom cashback yang dihitung kantor. Skrip ini
 menghitung ulang angka itu dari tabel strata, lalu membandingkannya baris per
-baris. Kalau ada tabel yang salah ketik, selisihnya langsung kelihatan di sini
-alih-alih diam-diam masuk ke web.
+baris. Kalau tabel strata salah ketik — atau bandnya berubah di bulan baru —
+selisihnya langsung kelihatan di sini alih-alih diam-diam masuk ke web.
 
-Pakai:  python3 web/tools/uji_cashback.py <folder berisi form monitoring>
+Pakai:  python3 web/tools/uji_cashback.py MONITORING_IKAT_TARGET_Q3_*.xlsx
 """
 
 import sys
 from pathlib import Path
 
 import openpyxl
-import xlrd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cashback  # noqa: E402
 
-# Nama berkas dicocokkan sebagian karena unggahan sering diberi awalan acak.
-FORM = {
-    "lm600": "IKAT_TARGET_LM_600",
-    "lm1500": "IKAT_TARGET_LM_1500",
-    "tph": "IKAT_TARGET_TPH",
-    "nmad": "IKAT_TARGET_NIPIS_MADU",
-    "galon": "CASHBACK_DISCOUNT_SO_GRM",
-}
+# Tiap sheet September: (nama sheet, baris data pertama, kolom omset total,
+# kolom ACH, kolom nilai cashback, tabel strata, kolom keterangan)
+SHEET = [
+    ("SO TPH SEP", 7, 38, 39, 44, "TPH_SO", None),
+    ("GROMIN TPH SEP", 7, 38, 39, 44, "TPH_GROMIN", None),
+    ("NMAD SEP - NOV", 5, 41, 42, 47, "NMAD", None),
+    ("LM 600 JAKTIM", 7, 73, 75, 79, "LM600", 81),
+    ("LM 600 BEKASI", 7, 73, 75, 79, "LM600", 81),
+    ("SO GALON 15L SEP", 13, 13, None, 15, "GALON_SO", None),
+    ("GRM GALON 15L SEP", 13, 13, None, 15, "GALON_GROMIN", None),
+]
+
+# LM 1500+330 dipisah dua ukuran, keduanya memakai tarif dari total gabungan.
+SHEET_LM1500 = [("LM 1500+330 JAKTIM", 7), ("LM 1500+330 BEKASI", 7)]
 
 
 def angka(x):
     return x if isinstance(x, (int, float)) else None
 
 
-def cari_berkas(folder, potongan):
-    for p in sorted(Path(folder).iterdir()):
-        if potongan.lower() in p.name.lower():
-            return p
-    return None
-
-
-def uji(nama, baris):
-    """baris: (omset, ach, cashback_tercetak, tarif_model, syarat_ach)"""
+def uji(nama, baris, gate):
     cocok = beda = 0
     contoh = []
-    for omset, ach, tercetak, tarif, syarat in baris:
-        lolos = (not syarat) or (ach is not None and ach >= 1)
+    for omset, ach, tercetak, tarif in baris:
+        lolos = (not gate) or (ach is not None and ach >= 1)
         hitung = round(omset * tarif) if (tarif and lolos) else 0
         if abs(hitung - (tercetak or 0)) < 1:
             cocok += 1
@@ -52,115 +49,61 @@ def uji(nama, baris):
             beda += 1
             if len(contoh) < 3:
                 contoh.append((omset, ach, tercetak, hitung))
-    print(f"  {nama:22} {cocok:4} cocok / {cocok + beda:4} baris" +
+    print(f"  {nama:28} {cocok:4} cocok / {cocok + beda:4} baris" +
           ("" if not beda else f"   <-- {beda} BEDA"))
     for omset, ach, tercetak, hitung in contoh:
-        a = "-" if ach is None else f"{ach:.3f}"
+        a = "-" if ach is None else f"{ach:.2f}"
         print(f"      omset={omset:9,.0f} ach={a} tercetak={tercetak:,.0f} model={hitung:,.0f}")
     return beda
 
 
 def main():
-    folder = sys.argv[1] if len(sys.argv) > 1 else "."
+    if len(sys.argv) < 2:
+        sys.exit("Pakai: python3 web/tools/uji_cashback.py <form monitoring .xlsx>")
+    wb = openpyxl.load_workbook(sys.argv[1], data_only=True)
     total_beda = 0
 
-    p = cari_berkas(folder, FORM["lm600"])
-    if p:
-        s = xlrd.open_workbook(p).sheet_by_name("MONITORING LM Q3.2026")
+    for nama, awal, c_omset, c_ach, c_nilai, tabel, c_ket in SHEET:
+        if nama not in wb.sheetnames:
+            print(f"  {nama:28} tidak ada di workbook ini")
+            continue
         baris = []
-        for i in range(7, s.nrows):
-            if not str(s.cell_value(i, 5)).strip():
+        for r in list(wb[nama].iter_rows(values_only=True))[awal:]:
+            # Sheet galon memakai kolom nama outlet yang berbeda dari sheet lain.
+            if not (r[4] if tabel.startswith("GALON") else r[5]):
                 continue
-            omset = angka(s.cell_value(i, 56)) or 0
-            # Baris GUGUR diuji lewat aturan turun zona, bukan lewat tabel tarif.
-            if not omset or str(s.cell_value(i, 64)).strip() == "GUGUR":
-                continue
-            # Kolom Agustus memakai band Jul-Aug, bukan band September.
-            t = tarif_julaug("LM600", omset)
-            baris.append((omset, angka(s.cell_value(i, 58)), angka(s.cell_value(i, 62)) or 0, t, False))
-        total_beda += uji("LM 600 (Agustus)", baris)
-
-    p = cari_berkas(folder, FORM["lm1500"])
-    if p:
-        s = xlrd.open_workbook(p).sheet_by_name("MONITORING LM Q3.2026")
-        b15, b33 = [], []
-        for i in range(7, s.nrows):
-            if not str(s.cell_value(i, 5)).strip():
-                continue
-            total = angka(s.cell_value(i, 69)) or 0
-            if not total or str(s.cell_value(i, 78)).strip() == "GUGUR":
-                continue
-            t15, t33 = tarif_julaug("LM1500", total, dua=True)
-            ach = angka(s.cell_value(i, 71))
-            b15.append((angka(s.cell_value(i, 63)) or 0, ach, angka(s.cell_value(i, 75)) or 0, t15, False))
-            b33.append((angka(s.cell_value(i, 68)) or 0, ach, angka(s.cell_value(i, 76)) or 0, t33, False))
-        total_beda += uji("LM 1500ML (Agustus)", b15)
-        total_beda += uji("LM 330ML (Agustus)", b33)
-
-    p = cari_berkas(folder, FORM["tph"])
-    if p:
-        wb = xlrd.open_workbook(p)
-        for sheet, tabel in [("SO", "TPH_SO"), ("GROMIN", "TPH_GROMIN")]:
-            s = wb.sheet_by_name(sheet)
-            baris = []
-            for i in range(7, s.nrows):
-                if not str(s.cell_value(i, 5)).strip():
-                    continue
-                omset = angka(s.cell_value(i, 37)) or 0
-                if not omset:
-                    continue
-                t, _ = cashback.tarif(tabel, omset)
-                baris.append((omset, angka(s.cell_value(i, 38)), angka(s.cell_value(i, 43)) or 0, t, False))
-            total_beda += uji(f"TPH {sheet} (Agustus)", baris)
-
-    p = cari_berkas(folder, FORM["nmad"])
-    if p:
-        ws = openpyxl.load_workbook(p, data_only=True)["MON.IKAT TARGET NMAD"]
-        baris = []
-        for r in list(ws.iter_rows(values_only=True))[5:]:
-            if not r[5]:
-                continue
-            omset = angka(r[36]) or 0
+            omset = angka(r[c_omset]) or 0
             if not omset:
                 continue
-            t, _ = cashback.tarif("NMAD", omset)
-            baris.append((omset, angka(r[37]), angka(r[40]) or 0, t, True))
-        total_beda += uji("Nipis Madu (Agustus)", baris)
+            # Baris GUGUR diatur aturan turun zona, bukan tabel tarif.
+            if c_ket is not None and str(r[c_ket]).strip() == "GUGUR":
+                continue
+            t, _ = cashback.tarif(tabel, omset)
+            ach = angka(r[c_ach]) if c_ach is not None else None
+            baris.append((omset, ach, angka(r[c_nilai]) or 0, t))
+        total_beda += uji(nama, baris, tabel in cashback.SYARAT_ACH)
 
-    p = cari_berkas(folder, FORM["galon"])
-    if p:
-        wb = xlrd.open_workbook(p)
-        for sheet, tabel in [("CASHBACK_SO_GALON", "GALON_SO"), ("CASHBACK_GRM_GALON", "GALON_GROMIN")]:
-            s = wb.sheet_by_name(sheet)
-            baris = []
-            for i in range(13, s.nrows):
-                if not str(s.cell_value(i, 4)).strip():
-                    continue
-                omset = angka(s.cell_value(i, 13)) or 0
-                if not omset:
-                    continue
-                t, _ = cashback.tarif(tabel, omset)
-                baris.append((omset, None, angka(s.cell_value(i, 15)) or 0, t, False))
-            total_beda += uji(f"{sheet} (Agustus)", baris)
+    for nama, awal in SHEET_LM1500:
+        if nama not in wb.sheetnames:
+            continue
+        b15, b33 = [], []
+        for r in list(wb[nama].iter_rows(values_only=True))[awal:]:
+            if not r[5]:
+                continue
+            total = angka(r[94]) or 0
+            if not total or str(r[103]).strip() == "GUGUR":
+                continue
+            t, _ = cashback.tarif("LM1500", total)
+            ach = angka(r[96])
+            b15.append((angka(r[87]) or 0, ach, angka(r[100]) or 0, t))
+            b33.append((angka(r[93]) or 0, ach, angka(r[101]) or 0, t))
+        total_beda += uji(nama + " 1500ML", b15, False)
+        total_beda += uji(nama + " 330ML", b33, False)
 
     print()
-    print("Semua cocok." if not total_beda else f"{total_beda} baris tidak cocok — periksa tabel strata.")
+    print("Semua cocok." if not total_beda
+          else f"{total_beda} baris tidak cocok — periksa tabel strata di cashback.py.")
     return 1 if total_beda else 0
-
-
-# Band volume bulan Juli-Agustus berbeda dari September (September 5 minggu),
-# sedangkan cashback.py menyimpan band September yang dipakai web.
-BAND_JULAUG = {
-    "LM600": [(10000, 1100), (6000, 900), (2600, 800), (1000, 700), (400, 600)],
-    "LM1500": [(6000, 1100, 500), (4000, 900, 500), (2000, 800, 400), (1000, 700, 400), (400, 600, 300)],
-}
-
-
-def tarif_julaug(tabel, omset, dua=False):
-    for baris in BAND_JULAUG[tabel]:
-        if omset >= baris[0]:
-            return (baris[1], baris[2]) if dua else baris[1]
-    return (0, 0) if dua else 0
 
 
 if __name__ == "__main__":

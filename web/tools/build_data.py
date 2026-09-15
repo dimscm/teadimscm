@@ -155,6 +155,7 @@ def read_sheet(ws, cfg):
             "tipe": text(raw[KOLOM["tipe"]]),
             "channel": text(raw[KOLOM["channel"]]),
             "ket": text(raw[KOLOM["ket"]]),
+            "spk": False,
             "zona": "" if galon else text(raw[33]),
             "diskon": num(raw[33]) if galon else None,
             "tgtWeek": None if galon else num(raw[29]),
@@ -198,10 +199,10 @@ def baca_koordinat(wb):
     return {}, None
 
 
-def build(xlsx_path, mix_path=None):
+def build(xlsx_path, monitoring_path=None):
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     koordinat, sheet_koordinat = baca_koordinat(wb)
-    mix = baca_mix_lm1500(mix_path) if mix_path else {}
+    monitoring = baca_monitoring(monitoring_path) if monitoring_path else {}
     products = []
     for ws in wb.worksheets:
         cfg = SHEETS.get(ws.title.strip())
@@ -214,8 +215,15 @@ def build(xlsx_path, mix_path=None):
             titik = koordinat.get(r["no"])
             if titik:
                 r["lat"], r["lng"] = titik
-            r["cb"] = cashback.hitung(cfg["program"], r["tipe"], r["tgt"], r["total"],
-                                      share1500=mix.get(r["no"]))
+            segar = monitoring.get((cfg["program"], r["no"]))
+            if segar:
+                # Form monitoring adalah sumber resmi program cashback: kalau
+                # outletnya ada di sana, target dan omsetnya yang dipakai.
+                r["tgt"] = segar["tgt"] or r["tgt"]
+                r["weeks"] = segar["weeks"]
+                r["total"] = segar["total"]
+                r["spk"] = True
+            r["cb"] = cashback.hitung(cfg["program"], r["tipe"], r["tgt"], r["total"])
         products.append({
             "id": ws.title.strip(),
             "label": cfg["label"],
@@ -241,54 +249,70 @@ def build(xlsx_path, mix_path=None):
     }
 
 
-def baca_mix_lm1500(path):
-    """Bagian omset LM 1500ML terhadap total 1500+330 per outlet, dari form
-    monitoring bulan lalu.
+# Tiap produk: daftar (sheet, baris data pertama, kolom kode outlet,
+# kolom target, kolom total omset, kolom minggu pertama).
+SHEET_MONITORING = {
+    "TPH": [("SO TPH SEP", 7, 4, 31, 38, 33), ("GROMIN TPH SEP", 7, 4, 31, 38, 33)],
+    "NMAD": [("NMAD SEP - NOV", 5, 4, 34, 41, 36)],
+    "LM600": [("LM 600 JAKTIM", 7, 4, 66, 73, 68), ("LM 600 BEKASI", 7, 4, 66, 73, 68)],
+    "LM1500": [("LM 1500+330 JAKTIM", 7, 4, 80, 94, None),
+               ("LM 1500+330 BEKASI", 7, 4, 80, 94, None)],
+    "GALON": [("SO GALON 15L SEP", 13, 3, 7, 13, 8), ("GRM GALON 15L SEP", 13, 3, 7, 13, 8)],
+}
 
-    Tarif cashback LM 1500ML dan 330ML berbeda, sedangkan file target hanya
-    memuat jumlah keduanya. Komposisi tiap outlet diambil dari bulan terakhir
-    yang datanya lengkap; outlet tanpa riwayat memakai rata-rata semua outlet.
+# LM 1500+330 memisahkan omset per ukuran; keduanya dijumlahkan per minggu.
+KOLOM_LM1500 = ([82, 83, 84, 85, 86], [88, 89, 90, 91, 92])
+
+
+def baca_monitoring(path):
+    """Target SPK dan omset terbaru per outlet dari form monitoring bulanan.
+
+    Form ini hanya memuat outlet yang SPK-nya sudah ada. Outlet yang masih
+    berstatus potensi tidak ada di sini, dan tetap memakai angka dari file
+    target.
     """
-    import xlrd
-
-    s = xlrd.open_workbook(path).sheet_by_name("MONITORING LM Q3.2026")
-    mix = {}
-    jum15 = jum33 = 0
-    for i in range(7, s.nrows):
-        kode = s.cell_value(i, 4)
-        if not isinstance(kode, (int, float)):
-            continue
-        v15 = s.cell_value(i, 63)
-        v33 = s.cell_value(i, 68)
-        v15 = v15 if isinstance(v15, (int, float)) else 0
-        v33 = v33 if isinstance(v33, (int, float)) else 0
-        if v15 + v33 <= 0:
-            continue
-        mix[int(kode)] = v15 / (v15 + v33)
-        jum15 += v15
-        jum33 += v33
-
-    if jum15 + jum33:
-        rata = jum15 / (jum15 + jum33)
-        print(f"  campuran LM 1500ML: {len(mix)} outlet berriwayat, "
-              f"rata-rata {rata * 100:.0f}% ukuran 1500ML")
-    return mix
+    wb = openpyxl.load_workbook(path, data_only=True)
+    hasil = {}
+    for program, daftar in SHEET_MONITORING.items():
+        for nama, awal, k_kode, k_tgt, k_total, k_week in daftar:
+            if nama not in wb.sheetnames:
+                print(f"  ! sheet monitoring '{nama}' tidak ada, dilewati")
+                continue
+            for raw in list(wb[nama].iter_rows(values_only=True))[awal:]:
+                kode = num(raw[k_kode])
+                if kode is None or not text(raw[k_kode + 1]):
+                    continue
+                if k_week is None:
+                    a, b = KOLOM_LM1500
+                    weeks = [None if raw[x] is None and raw[y] is None
+                             else (num(raw[x]) or 0) + (num(raw[y]) or 0)
+                             for x, y in zip(a, b)]
+                else:
+                    weeks = [num(raw[k_week + i]) for i in range(len(WEEK_LABELS))]
+                hasil[(program, int(kode))] = {
+                    "tgt": num(raw[k_tgt]),
+                    "weeks": weeks,
+                    "total": round(sum(w for w in weeks if w), 2),
+                }
+    print(f"  monitoring: {len(hasil)} baris outlet-produk dengan SPK")
+    return hasil
 
 
 def main():
     if len(sys.argv) < 2:
-        sys.exit("Pakai: python3 web/tools/build_data.py <berkas.xlsx> [--mix <form_lm1500.xls>]")
+        sys.exit("Pakai: python3 web/tools/build_data.py <target.xlsx> "
+                 "[--monitoring <form_monitoring.xlsx>]")
     xlsx = Path(sys.argv[1])
     if not xlsx.exists():
         sys.exit(f"File tidak ditemukan: {xlsx}")
 
-    mix_path = None
-    if "--mix" in sys.argv:
-        mix_path = Path(sys.argv[sys.argv.index("--mix") + 1])
-        if not mix_path.exists():
-            sys.exit(f"File tidak ditemukan: {mix_path}")
+    monitoring_path = None
+    if "--monitoring" in sys.argv:
+        monitoring_path = Path(sys.argv[sys.argv.index("--monitoring") + 1])
+        if not monitoring_path.exists():
+            sys.exit(f"File tidak ditemukan: {monitoring_path}")
 
-    data = build(xlsx, mix_path)
+    data = build(xlsx, monitoring_path)
     out = ROOT / "data.js"
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     out.write_text(

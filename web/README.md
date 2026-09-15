@@ -4,9 +4,15 @@ Tampilan web untuk workbook target bulanan. Tiap **sheet di Excel = satu
 produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
-Periode yang sedang tampil: **September 2026 (W35–W39)**, dari
-`TARGET_SEPTEMBER_TOKO_AI.xlsx` — 5 produk (TPH, Nipis Madu, LM 600,
-LM 1500+330, Galon 15L) / 153 outlet.
+Periode yang sedang tampil: **September 2026 (W35–W39)** — 5 produk (TPH,
+Nipis Madu, LM 600, LM 1500+330, Galon 15L) / 153 outlet. Daftar outletnya
+dari file target bulanan; angka omset dan target SPK-nya disegarkan dari form
+monitoring mingguan (terakhir: update W37).
+
+> **Dua jenis outlet.** 73 baris sudah punya SPK dan ikut program cashback —
+> ditandai chip **SPK** di tabel, dan angkanya datang langsung dari form
+> monitoring. Sisanya masih berstatus potensi: angkanya dari file target, dan
+> cashback-nya hitungan perkiraan kalau nanti SPK-nya jadi.
 
 > Hanya baris yang **ada nama salesman**-nya yang diambil; baris tanpa
 > salesman dilewati dan jumlahnya dilaporkan saat build.
@@ -56,21 +62,23 @@ Aturan yang berbeda per program, semuanya dari form monitoring resmi:
 
 - **Nipis Madu** hanya membayar kalau ACH mencapai 100%. Program lain membayar
   mengikuti volume berapa pun yang masuk strata.
-- **LM 600 dan LM 1500+330** menggugurkan cashback kalau zona akhir jatuh dua
-  tingkat atau lebih di bawah zona SPK. Turun satu tingkat masih dibayar.
+- **LM 600 dan LM 1500+330** tetap membayar meski zona akhir turun dari zona
+  SPK; yang menggugurkan adalah omset yang jatuh di bawah band terendah.
 - **Galon 15L** memakai tarif per galon, berbeda antara SO dan GROMIN.
-- **LM 1500+330** tarifnya berbeda antara ukuran 1500ML dan 330ML, sedangkan
-  file target hanya memuat jumlah keduanya. Komposisi tiap outlet diambil dari
-  riwayat bulan sebelumnya lewat `--mix` (lihat di bawah); tanpa itu semuanya
-  dianggap 1500ML dan angkanya jadi terlalu tinggi.
+
+> **Band strata berubah tiap bulan** mengikuti jumlah minggu — September lima
+> minggu, Juli dan Agustus empat. Tarif per zona juga bisa berubah: di
+> September LM 1500ML dan 330ML memakai tarif yang sama, sedangkan Agustus
+> masih membedakan keduanya. Jadi tabel di `cashback.py` wajib disegarkan
+> setiap form monitoring bulan baru datang.
 
 Tabel strata ada di `tools/cashback.py`, dan `tools/uji_cashback.py`
-menghitung ulang kolom cashback yang sudah tercetak di form monitoring
-Agustus 2026 lalu membandingkannya baris per baris — 367 baris, semuanya
-cocok. Jalankan itu tiap kali tabel strata diubah:
+menghitung ulang kolom cashback yang sudah tercetak di form monitoring lalu
+membandingkannya baris per baris — 294 baris September, semuanya cocok.
+Jalankan itu tiap kali tabel strata diubah:
 
 ```bash
-python3 web/tools/uji_cashback.py <folder berisi form monitoring>
+python3 web/tools/uji_cashback.py MONITORING_IKAT_TARGET_Q3_....xlsx
 ```
 
 > Bonus triwulan Juli–September **belum** masuk web, karena hasil triwulannya
@@ -128,16 +136,31 @@ beres.
 > sebaiknya repo dipindah ke privat (Pages privat butuh paket berbayar) atau
 > cukup kirim `dist/master-target.html` langsung ke tim.
 
-## Memperbarui data bulan berikutnya
+## Memperbarui data
+
+Ada dua ritme, dan dua perintah yang berbeda.
+
+**Tiap ada form monitoring baru (mingguan).** Ini yang paling sering, dan
+tidak butuh file target:
+
+```bash
+python3 web/tools/refresh_monitoring.py MONITORING_IKAT_TARGET_Q3_....xlsx
+python3 web/tools/build_single.py
+```
+
+Angka outlet ber-SPK diperbarui dari form itu, cashback semua baris dihitung
+ulang, dan tanggal di kaki halaman ikut berganti.
+
+**Tiap ganti bulan**, saat file target bulanan baru terbit dan daftar
+outletnya berubah:
 
 ```bash
 python3 web/tools/build_data.py target_oktober.xlsx \
-    --mix FORM_MONITORING_IKAT_TARGET_LM_1500330ml.xls   # tulis ulang web/data.js
-python3 web/tools/build_single.py                        # tulis ulang dist/ + docs/
+    --monitoring MONITORING_IKAT_TARGET_Q4_....xlsx
+python3 web/tools/build_single.py
 ```
 
-`--mix` bersifat opsional dan hanya dipakai untuk memisahkan tarif LM 1500ML
-dan 330ML; tanpa itu build tetap jalan.
+`--monitoring` opsional; tanpa itu semua angka datang dari file target saja.
 
 Yang perlu disesuaikan di `build_data.py` tiap ganti bulan:
 
@@ -165,7 +188,8 @@ seluruh baris workbook tiap kali data diperbarui.
 | `styles.css` | tampilan, termasuk mode gelap dan tata letak HP |
 | `app.js` | filter, pencarian, rekap, panel detail, ekspor CSV |
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
-| `tools/build_data.py` | Excel → `data.js` |
+| `tools/build_data.py` | file target bulanan → `data.js` |
+| `tools/refresh_monitoring.py` | segarkan `data.js` dari form monitoring mingguan |
 | `tools/cashback.py` | tabel strata dan aturan cashback tiap program |
 | `tools/uji_cashback.py` | uji tabel strata terhadap form monitoring resmi |
 | `tools/build_single.py` | gabung semuanya jadi satu berkas HTML + `docs/index.html` |

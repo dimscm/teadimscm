@@ -62,7 +62,7 @@
   var CB_STATUS = {
     aman: { teks: "Target tercapai — cashback aman", kelas: "good" },
     kurang: { teks: "Belum tercapai — sisa masih bisa dikejar", kelas: "warn" },
-    gugur: { teks: "Terancam gugur — turun dua zona dari SPK", kelas: "crit" },
+    gugur: { teks: "Omset masih di bawah strata terendah", kelas: "crit" },
     nol: { teks: "Belum ada order — cashback hangus kalau dibiarkan", kelas: "crit" }
   };
 
@@ -252,6 +252,7 @@
         '<div class="outlet-meta">' +
         (state.produk === "all" ? '<span class="chip">' + esc(r.produk) + "</span>" : "") +
         (r.tipe ? '<span class="chip">' + esc(r.tipe) + "</span>" : "") +
+        (r.spk ? '<span class="chip spk">SPK</span>' : "") +
         '<span class="no">' + r.no + "</span> · " + esc(r.alamat || "-") + "</div></div>" +
         '<div class="c-sales">' + esc(r.sales) + "</div>" +
         '<div class="c-wilayah">' + esc(r.wilayah) + "</div>" +
@@ -379,6 +380,9 @@
         hist2("Tarif di target", r.cb.tarifTgt ? rp(r.cb.tarifTgt) + " / " + esc(r.satuan || "crt") +
           (r.cb.zonaTgt ? " (zona " + esc(r.cb.zonaTgt) + ")" : "") : "–") +
         (r.cb.syaratAch ? hist2("Syarat", "hanya dibayar kalau target tercapai") : "") +
+        hist2("Dasar angka", r.spk
+          ? "SPK aktif, dari form monitoring"
+          : "belum ada SPK — masih perkiraan") +
         '<div class="sec">Rincian outlet</div>';
     }
 
