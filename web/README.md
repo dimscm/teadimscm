@@ -5,14 +5,13 @@ produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **September 2026 (W35–W39)** — 5 produk (TPH,
-Nipis Madu, LM 600, LM 1500+330, Galon 15L) / 153 outlet. Daftar outletnya
-dari file target bulanan; angka omset dan target SPK-nya disegarkan dari form
-monitoring mingguan (terakhir: update W37).
+Nipis Madu, LM 600, LM 1500+330, Galon 15L) / 153 outlet, seluruhnya dari file
+target bulanan `TARGET_SEPTEMBER_TOKO_AI.xlsx`.
 
-> **Dua jenis outlet.** 73 baris sudah punya SPK dan ikut program cashback —
-> ditandai chip **SPK** di tabel, dan angkanya datang langsung dari form
-> monitoring. Sisanya masih berstatus potensi: angkanya dari file target, dan
-> cashback-nya hitungan perkiraan kalau nanti SPK-nya jadi.
+> **Dua jenis outlet.** 68 baris bertanda **FIX IKAT TARGET** — targetnya sudah
+> diikat SPK, jadi cashback-nya hak yang nyata; ditandai chip **SPK** di tabel.
+> Sisanya masih **POTENSI**: cashback-nya hitungan perkiraan kalau nanti
+> SPK-nya jadi.
 
 > Hanya baris yang **ada nama salesman**-nya yang diambil; baris tanpa
 > salesman dilewati dan jumlahnya dilaporkan saat build.

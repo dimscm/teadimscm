@@ -155,7 +155,9 @@ def read_sheet(ws, cfg):
             "tipe": text(raw[KOLOM["tipe"]]),
             "channel": text(raw[KOLOM["channel"]]),
             "ket": text(raw[KOLOM["ket"]]),
-            "spk": False,
+            # "FIX IKAT TARGET" berarti targetnya sudah diikat SPK, dan itu yang
+            # membedakan cashback yang sudah jadi hak dari yang masih perkiraan.
+            "spk": text(raw[KOLOM["ket"]]).upper().startswith("FIX"),
             "zona": "" if galon else text(raw[33]),
             "diskon": num(raw[33]) if galon else None,
             "tgtWeek": None if galon else num(raw[29]),

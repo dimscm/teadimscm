@@ -381,8 +381,8 @@
           (r.cb.zonaTgt ? " (zona " + esc(r.cb.zonaTgt) + ")" : "") : "–") +
         (r.cb.syaratAch ? hist2("Syarat", "hanya dibayar kalau target tercapai") : "") +
         hist2("Dasar angka", r.spk
-          ? "SPK aktif, dari form monitoring"
-          : "belum ada SPK — masih perkiraan") +
+          ? "target sudah diikat SPK"
+          : "masih potensi, belum diikat SPK") +
         '<div class="sec">Rincian outlet</div>';
     }
 
