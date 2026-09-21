@@ -6,7 +6,14 @@ mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **September 2026 (W35–W39)** — 5 produk (TPH,
 Nipis Madu, LM 600, LM 1500+330, Galon 15L) / 153 outlet, seluruhnya dari file
-target bulanan `TARGET_SEPTEMBER_TOKO_AI.xlsx`.
+target bulanan (terakhir `master_september.xlsx`).
+
+> **Kolom identitas dibaca dari judulnya, bukan posisinya.** Susunan kolom
+> pernah berubah di tengah bulan — RSM diganti Kecamatan dan Kelurahan, dan
+> baris data bergeser satu — tanpa mengubah kolom angka. Karena itu build
+> mencari sendiri baris judul dan tiap kolom identitas; kalau kolom angka yang
+> bergeser, build berhenti dengan pesan jelas alih-alih menghasilkan angka
+> yang salah.
 
 > **Dua jenis outlet.** 68 baris bertanda **FIX IKAT TARGET** — targetnya sudah
 > diikat SPK, jadi cashback-nya hak yang nyata; ditandai chip **SPK** di tabel.
@@ -20,8 +27,9 @@ target bulanan `TARGET_SEPTEMBER_TOKO_AI.xlsx`.
 > daftar outlet dengan kolom `KODEOUTLET`, `Latitude`, dan `Langitude`, isinya
 > otomatis disambungkan ke outlet berdasarkan kode, dan panel detail
 > menampilkan tautan ke Google Maps. Sheet itu dikenali dari judul kolomnya,
-> bukan dari namanya, dan koordinat 0,0 dianggap belum dipetakan. Tanpa sheet
-> itu semuanya tetap jalan, cuma tanpa tautan peta.
+> bukan dari namanya, dan koordinat 0,0 dianggap belum dipetakan. Kalau sheet
+> itu tidak ikut dikirim, koordinat yang sudah ada di `data.js` dipakai lagi —
+> lokasi toko tidak berubah tiap bulan.
 
 > **Satuan tidak seragam.** TPH, Nipis Madu, dan LM dihitung per karton;
 > Galon 15L per galon. Kalau tab **Semua Produk** aktif, halaman memasang

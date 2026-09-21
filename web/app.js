@@ -28,7 +28,8 @@
       r.sisaCb = r.cb ? r.cb.sisa : 0;
       r.cari = (r.nama + " " + r.no + " " + r.alamat + " " + r.sales + " " +
         r.wilayah + " " + (r.tipe || "") + " " + (r.ket || "") + " " +
-        (r.channel || "")).toLowerCase();
+        (r.channel || "") + " " + (r.kecamatan || "") + " " +
+        (r.kelurahan || "")).toLowerCase();
       ROWS.push(r);
     });
   });
@@ -343,6 +344,8 @@
       extra += '<div><div class="k">ACH vs maks</div><div class="v"><span class="pill ' +
         achClass(r.achMx) + '">' + pct(r.achMx) + "</span></div></div>";
     }
+    if (r.kecamatan) extra += kv("Kecamatan", esc(r.kecamatan));
+    if (r.kelurahan) extra += kv("Kelurahan", esc(r.kelurahan));
     if (r.tipe) extra += kv("Tipe outlet", esc(r.tipe));
     if (r.ket) extra += kv("Keterangan", esc(r.ket));
     if (r.zona) extra += kv(r.zonaLabel || "Zona", esc(r.zona));
@@ -431,14 +434,15 @@
   function exportCsv() {
     var rows = filtered().sort(SORTS[state.sort]);
     var head = ["Produk", "Satuan", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet",
-      "Alamat", "Tipe Outlet", "Channel", "Keterangan", "Zona", "Target MID", "Target Maks"]
+      "Alamat", "Kecamatan", "Kelurahan", "Tipe Outlet", "Channel", "Keterangan", "Zona",
+      "Target MID", "Target Maks"]
       .concat(WEEKS, ["Realisasi", "Kurang MID", "Kurang Maks", "ACH MID %", "ACH Maks %",
         "Tarif Cashback", "Cashback Sekarang", "Cashback Jika Target", "Sisa Cashback",
         "Status Cashback", "Latitude", "Longitude"]);
 
     var lines = [head].concat(rows.map(function (r) {
-      return [r.produk, r.satuan, r.sales, r.wilayah, r.no, r.nama, r.alamat, r.tipe,
-        r.channel, r.ket, r.zona, r.tgt, r.tgtMx]
+      return [r.produk, r.satuan, r.sales, r.wilayah, r.no, r.nama, r.alamat,
+        r.kecamatan || "", r.kelurahan || "", r.tipe, r.channel, r.ket, r.zona, r.tgt, r.tgtMx]
         .concat(r.weeks.map(function (v) { return v === null ? "" : v; }),
           [r.total, r.kurang, r.kurangMx,
             r.ach === null ? "" : Math.round(r.ach * 100),

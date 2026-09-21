@@ -28,26 +28,34 @@ ROOT = Path(__file__).resolve().parents[1]
 PERIODE = "September 2026"
 WEEK_LABELS = ["W35", "W36", "W37", "W38", "W39"]
 
-BARIS_HEADER = 6      # baris judul kolom (1-based)
-BARIS_SUBHEADER = 7   # baris nama bulan / TOTAL / AVG
-BARIS_AWAL = 8        # baris data pertama
-
-KOLOM = {
-    "region": 2,      # RSM
-    "wilayah": 3,     # RAYON
-    "no": 4,
-    "nama": 5,
-    "alamat": 6,
-    "tipe": 7,        # TYPE OUTLET: SO / GROMIN / GROSIR
-    "channel": 8,     # CHANNEL (LBP)
-    "sales": 9,
-    "ket": 10,        # FIX IKAT TARGET / POTENSI
+# Kolom identitas dicari lewat judulnya, bukan posisi tetap: susunannya sudah
+# pernah berubah (RSM diganti Kecamatan dan Kelurahan) tanpa mengubah kolom
+# angka, dan posisi tetap membuat build diam-diam salah baca.
+JUDUL_KOLOM = {
+    "no": ("KODE OUTLET",),
+    "nama": ("NAMA OUTLET",),
+    "alamat": ("ALAMAT",),
+    "tipe": ("TYPE OUTLET",),
+    "channel": ("CHANNEL (LBP)", "CHANNEL"),
+    "sales": ("SALESMAN",),
+    "ket": ("KETERANGAN",),
+    "wilayah": ("RAYON",),
+    "region": ("RSM", "REGION"),
+    "kecamatan": ("KECAMATAN",),
+    "kelurahan": ("KELURAHAN",),
 }
+
+# Kolom yang wajib ada; sisanya boleh kosong kalau memang tidak ada di file.
+WAJIB = ("no", "nama", "sales", "ket", "wilayah")
 
 # Tiga blok omset, masing-masing 3 bulan + TOTAL + AVG.
 BLOK_OMSET = [11, 16, 21]
 KOLOM_ACUAN = [26, 27, 28]
 KOLOM_WEEK = [34, 35, 36, 37, 38]
+
+# Blok angka belum pernah bergeser, tapi kalau suatu saat bergeser build harus
+# berhenti dengan jelas, bukan menghasilkan angka yang salah diam-diam.
+PERIKSA_SUBJUDUL = {29: ("TGT/WK MID", "TGT/BLN MID"), 39: ("TOTAL",), 40: ("ACH % VS MID",)}
 
 # Galon dijual per galon, bukan per karton, dan targetnya sudah per bulan —
 # bukan per minggu seperti produk lain. Kolom 33 pun beda artinya.
@@ -110,12 +118,46 @@ def susun_riwayat(header, subheader, raw, galon):
     return riwayat
 
 
+def peta_kolom(header):
+    """Cari indeks tiap kolom identitas dari judulnya."""
+    judul = {rapikan(v).upper(): i for i, v in enumerate(header) if v is not None}
+    pos = {}
+    for kunci, kandidat in JUDUL_KOLOM.items():
+        for nama in kandidat:
+            if nama in judul:
+                pos[kunci] = judul[nama]
+                break
+    hilang = [k for k in WAJIB if k not in pos]
+    if hilang:
+        raise SystemExit(f"Kolom wajib tidak ditemukan di sheet: {', '.join(hilang)}")
+    return pos
+
+
+def cari_header(semua):
+    """Baris judul kolom adalah baris yang memuat 'KODE OUTLET'."""
+    for i, raw in enumerate(semua):
+        if any(rapikan(v).upper() == "KODE OUTLET" for v in raw if v is not None):
+            return i
+    raise SystemExit("Baris judul kolom tidak ditemukan (tidak ada 'KODE OUTLET')")
+
+
 def read_sheet(ws, cfg):
-    rows = ws.iter_rows(values_only=True)
-    semua = list(rows)
-    header = semua[BARIS_HEADER - 1]
-    subheader = semua[BARIS_SUBHEADER - 1]
+    semua = list(ws.iter_rows(values_only=True))
+    i_header = cari_header(semua)
+    header = semua[i_header]
+    subheader = semua[i_header + 1]
+    KOLOM = peta_kolom(header)
     galon = cfg.get("galon", False)
+
+    for kolom, diharapkan in PERIKSA_SUBJUDUL.items():
+        ada = rapikan(subheader[kolom]).upper()
+        if ada not in diharapkan:
+            raise SystemExit(f"{ws.title}: kolom {kolom} berisi {ada!r}, "
+                             f"bukan {' / '.join(diharapkan)} — susunan kolom angka berubah")
+
+    # Baris data pertama: baris pertama setelah subjudul yang kode outletnya angka.
+    awal = next((i for i in range(i_header + 2, len(semua))
+                 if num(semua[i][KOLOM["no"]]) is not None), len(semua))
 
     # Galon: target sudah per bulan di kolom 29/30. Produk lain: 29/30 target
     # per minggu, 31/32 target sebulan, 33 zona.
@@ -125,7 +167,7 @@ def read_sheet(ws, cfg):
     tanpa_sales = 0
     seen = {}
 
-    for nomor, raw in enumerate(semua[BARIS_AWAL - 1:], start=BARIS_AWAL):
+    for nomor, raw in enumerate(semua[awal:], start=awal + 1):
         nama = text(raw[KOLOM["nama"]])
         sales = text(raw[KOLOM["sales"]])
         if not nama:
@@ -148,7 +190,9 @@ def read_sheet(ws, cfg):
         hasil.append({
             "sales": sales,
             "wilayah": text(raw[KOLOM["wilayah"]]),
-            "region": text(raw[KOLOM["region"]]),
+            "region": text(raw[KOLOM["region"]]) if "region" in KOLOM else "",
+            "kecamatan": text(raw[KOLOM["kecamatan"]]) if "kecamatan" in KOLOM else "",
+            "kelurahan": text(raw[KOLOM["kelurahan"]]) if "kelurahan" in KOLOM else "",
             "no": int(outlet_no) if outlet_no is not None else 0,
             "nama": nama,
             "alamat": text(raw[KOLOM["alamat"]]),
@@ -201,9 +245,35 @@ def baca_koordinat(wb):
     return {}, None
 
 
+def koordinat_lama():
+    """Koordinat outlet dari data.js yang sudah ada.
+
+    Lokasi toko tidak berubah tiap bulan, sedangkan sheet daftar outlet tidak
+    selalu ikut dikirim. Daripada tautan petanya hilang, koordinat yang sudah
+    pernah terbaca dipakai lagi.
+    """
+    berkas = ROOT / "data.js"
+    if not berkas.exists():
+        return {}
+    cocok = re.search(r"window\.MASTER_DATA = (.*);\s*$", berkas.read_text(encoding="utf-8"), re.S)
+    if not cocok:
+        return {}
+    lama = json.loads(cocok.group(1))
+    peta = {}
+    for produk in lama.get("products", []):
+        for r in produk.get("rows", []):
+            if r.get("lat") and r.get("lng"):
+                peta[r["no"]] = [r["lat"], r["lng"]]
+    return peta
+
+
 def build(xlsx_path, monitoring_path=None):
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     koordinat, sheet_koordinat = baca_koordinat(wb)
+    if not koordinat:
+        koordinat = koordinat_lama()
+        if koordinat:
+            print(f"  koordinat dari data.js sebelumnya: {len(koordinat)} outlet")
     monitoring = baca_monitoring(monitoring_path) if monitoring_path else {}
     products = []
     for ws in wb.worksheets:
