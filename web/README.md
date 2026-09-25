@@ -6,7 +6,7 @@ mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **September 2026 (W35–W39)** — 5 produk (TPH,
 Nipis Madu, LM 600, LM 1500+330, Galon 15L) / 153 outlet, seluruhnya dari file
-target bulanan (terakhir `master_september.xlsx`).
+target bulanan (terakhir `update_ikat_target_sep_25.xlsx`).
 
 > **Kolom identitas dibaca dari judulnya, bukan posisinya.** Susunan kolom
 > pernah berubah di tengah bulan — RSM diganti Kecamatan dan Kelurahan, dan
