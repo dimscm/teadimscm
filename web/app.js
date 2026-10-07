@@ -207,9 +207,9 @@
     var w = t.ach === null ? 0 : Math.min(t.ach, 1) * 100;
     $("#summary").innerHTML =
       card("Outlet", fmt(t.n), t.nol + " belum order") +
-      card("Target MID", fmt(t.tgt), t.duaTarget ? "maks " + fmt(t.tgtMx) : periodeSingkat()) +
+      card("Target", fmt(t.tgt), t.duaTarget ? "maks " + fmt(t.tgtMx) : periodeSingkat()) +
       card("Realisasi", fmt(t.tot), t.duaTarget
-        ? t.ok + " capai MID · " + t.okMx + " capai maks"
+        ? t.ok + " capai target · " + t.okMx + " capai maks"
         : t.ok + " outlet tercapai") +
       card("Kekurangan", fmt(t.kur), t.duaTarget ? "maks " + fmt(t.kurMx) : "sisa ke target") +
       card("Sisa cashback", rp(t.cbSisa), "aman sekarang " + rp(t.cbNow)) +
@@ -235,10 +235,10 @@
     if (!rows.length) return empty();
 
     var head = '<div class="tr head"><div>Outlet</div><div>Salesman</div><div>' + esc(LBL_WILAYAH) +
-      '</div><div class="r">Target MID<br>/ maks</div><div class="r">Realisasi</div>' +
-      '<div class="r">Kurang MID<br>/ maks</div>' +
+      '</div><div class="r">Target<br>/ maks</div><div class="r">Realisasi</div>' +
+      '<div class="r">Kurang<br>/ maks</div>' +
       '<div class="weeks">' + WEEKS.map(function (w) { return "<span>" + w + "</span>"; }).join("") +
-      '</div><div class="r">ACH MID<br>/ maks</div></div>';
+      '</div><div class="r">ACH<br>/ maks</div></div>';
 
     var body = rows.map(function (r) {
       // data-w dipakai CSS untuk menempelkan nama minggu saat baris berubah
@@ -289,9 +289,9 @@
     }).sort(function (a, b) { return b.kur - a.kur; });
 
     var head = '<div class="grp head"><div>' + esc(key === "sales" ? "Salesman" : LBL_WILAYAH) +
-      '</div><div class="r">Outlet</div><div class="r">Target MID / maks</div>' +
-      '<div class="r">Realisasi</div><div class="r">Kurang MID / maks</div>' +
-      '<div>Progres</div><div class="r">ACH MID / maks</div></div>';
+      '</div><div class="r">Outlet</div><div class="r">Target / maks</div>' +
+      '<div class="r">Realisasi</div><div class="r">Kurang / maks</div>' +
+      '<div>Progres</div><div class="r">ACH / maks</div></div>';
 
     var body = list.map(function (t) {
       var w = t.ach === null ? 0 : Math.min(t.ach, 1) * 100;
@@ -399,10 +399,11 @@
       kv("No outlet", r.no) +
       kv("Salesman", esc(r.sales)) +
       kv(LBL_WILAYAH, esc(r.wilayah)) +
-      kv("Target MID" + (r.satuan ? " (" + r.satuan + ")" : ""), fmt(r.tgt)) +
+      kv("Target" + (r.satuan ? " (" + r.satuan + ")" : "") +
+        (r.pilih ? " · " + esc(r.pilih) : ""), fmt(r.tgt)) +
       kv("Realisasi", fmt(r.total)) +
-      kv("Kekurangan MID", fmt(r.kurang)) +
-      '<div><div class="k">ACH vs MID</div><div class="v"><span class="pill ' + achClass(r.ach) +
+      kv("Kekurangan", fmt(r.kurang)) +
+      '<div><div class="k">ACH vs target</div><div class="v"><span class="pill ' + achClass(r.ach) +
       '">' + pct(r.ach) + "</span></div></div>" +
       extra +
       "</div>" +
@@ -435,7 +436,7 @@
     var rows = filtered().sort(SORTS[state.sort]);
     var head = ["Produk", "Satuan", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet",
       "Alamat", "Kecamatan", "Kelurahan", "Tipe Outlet", "Channel", "Keterangan", "Zona",
-      "Target MID", "Target Maks"]
+      "Target", "Target Maks"]
       .concat(WEEKS, ["Realisasi", "Kurang MID", "Kurang Maks", "ACH MID %", "ACH Maks %",
         "Tarif Cashback", "Cashback Sekarang", "Cashback Jika Target", "Sisa Cashback",
         "Status Cashback", "Latitude", "Longitude"]);

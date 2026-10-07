@@ -4,21 +4,17 @@ Tampilan web untuk workbook target bulanan. Tiap **sheet di Excel = satu
 produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
-Periode yang sedang tampil: **September 2026 (W35–W39)** — 5 produk (TPH,
-Nipis Madu, LM 600, LM 1500+330, Galon 15L) / 153 outlet, seluruhnya dari file
-target bulanan (terakhir `update_ikat_target_sep_25.xlsx`).
+Periode yang sedang tampil: **Oktober 2026 (W40–W43)** — 4 produk (LM 600,
+LM 1500+330, TPH, Nipis Madu) / 110 outlet, dari `target_oct_toko.xlsx`.
 
-> **Kolom identitas dibaca dari judulnya, bukan posisinya.** Susunan kolom
-> pernah berubah di tengah bulan — RSM diganti Kecamatan dan Kelurahan, dan
-> baris data bergeser satu — tanpa mengubah kolom angka. Karena itu build
-> mencari sendiri baris judul dan tiap kolom identitas; kalau kolom angka yang
-> bergeser, build berhenti dengan pesan jelas alih-alih menghasilkan angka
-> yang salah.
+> **Dua bentuk workbook, dua pembaca.** Sampai September file target berbentuk
+> "POTENSI ..." dan dibaca `tools/build_data.py`. Mulai Oktober bentuknya
+> "IKAT ..." — tiap sheet membawa tabel stratanya sendiri plus kolom zona,
+> rate, dan cashback yang sudah dihitung kantor — dan dibaca
+> `tools/build_ikat.py`. Keduanya menghasilkan `data.js` yang sama bentuknya.
 
-> **Dua jenis outlet.** 68 baris bertanda **FIX IKAT TARGET** — targetnya sudah
-> diikat SPK, jadi cashback-nya hak yang nyata; ditandai chip **SPK** di tabel.
-> Sisanya masih **POTENSI**: cashback-nya hitungan perkiraan kalau nanti
-> SPK-nya jadi.
+> **Galon 15L tidak ada di file Oktober**, jadi produk itu hilang dari web.
+> Kalau programnya jalan, file targetnya perlu dikirim terpisah.
 
 > Hanya baris yang **ada nama salesman**-nya yang diambil; baris tanpa
 > salesman dilewati dan jumlahnya dilaporkan saat build.
@@ -65,28 +61,28 @@ seluruh volume bulan itu. Yang ditampilkan:
 | Kalau target tercapai | cashback pada target bulan ini |
 | Tarif sekarang / di target | rupiah per karton beserta zonanya |
 
-Aturan yang berbeda per program, semuanya dari form monitoring resmi:
+Aturan yang berbeda per program, semuanya dari surat program:
 
 - **Nipis Madu** hanya membayar kalau ACH mencapai 100%. Program lain membayar
   mengikuti volume berapa pun yang masuk strata.
-- **LM 600 dan LM 1500+330** tetap membayar meski zona akhir turun dari zona
-  SPK; yang menggugurkan adalah omset yang jatuh di bawah band terendah.
-- **Galon 15L** memakai tarif per galon, berbeda antara SO dan GROMIN.
+- **TPH** memakai dua tabel strata terpisah untuk outlet SO dan GROMIN.
+- **LM 1500+330** tarifnya berbeda antara ukuran 1500ML dan 330ML; tarif
+  gabungannya mengikuti komposisi omset outlet itu sendiri.
 
-> **Band strata berubah tiap bulan** mengikuti jumlah minggu — September lima
-> minggu, Juli dan Agustus empat. Tarif per zona juga bisa berubah: di
-> September LM 1500ML dan 330ML memakai tarif yang sama, sedangkan Agustus
-> masih membedakan keduanya. Jadi tabel di `cashback.py` wajib disegarkan
-> setiap form monitoring bulan baru datang.
+> **Strata itu minimum karton per minggu, bukan per bulan.** Itu sebabnya band
+> bulanannya bergeser: September lima minggu, Oktober empat. Zona dihitung
+> dari rata-rata mingguan omset, jadi tabel yang sama tetap benar tiap bulan
+> tanpa ditulis ulang. Sejak Oktober tabel itu dibaca langsung dari sheetnya,
+> jadi tidak perlu disalin ke kode sama sekali.
 
-Tabel strata ada di `tools/cashback.py`, dan `tools/uji_cashback.py`
-menghitung ulang kolom cashback yang sudah tercetak di form monitoring lalu
-membandingkannya baris per baris — 294 baris September, semuanya cocok.
-Jalankan itu tiap kali tabel strata diubah:
+Untuk workbook bentuk "IKAT", cashback berjalan diambil apa adanya dari kolom
+yang sudah dihitung kantor; yang dihitung sendiri hanya **cashback kalau
+target tercapai** — angka yang tidak ada di file tetapi justru yang dicari
+sales. Tarif model dicocokkan ke tarif yang tercetak di file setiap build; per
+Oktober 23 baris bertarif, semuanya cocok.
 
-```bash
-python3 web/tools/uji_cashback.py MONITORING_IKAT_TARGET_Q3_....xlsx
-```
+Untuk workbook bentuk "POTENSI" yang lama, tabel strata ada di
+`tools/cashback.py` dan diuji dengan `tools/uji_cashback.py`.
 
 > Bonus triwulan Juli–September **belum** masuk web, karena hasil triwulannya
 > memang belum keluar. Yang dihitung hanya bulan berjalan.
@@ -145,47 +141,25 @@ beres.
 
 ## Memperbarui data
 
-Ada dua ritme, dan dua perintah yang berbeda.
-
-**Tiap ada form monitoring baru (mingguan).** Ini yang paling sering, dan
-tidak butuh file target:
-
 ```bash
-python3 web/tools/refresh_monitoring.py MONITORING_IKAT_TARGET_Q3_....xlsx
-python3 web/tools/build_single.py
+python3 web/tools/build_ikat.py target_oct_toko.xlsx   # workbook bentuk "IKAT"
+python3 web/tools/build_single.py                      # tulis ulang dist/ + docs/
 ```
 
-Angka outlet ber-SPK diperbarui dari form itu, cashback semua baris dihitung
-ulang, dan tanggal di kaki halaman ikut berganti.
+Tiap ganti bulan, sesuaikan tiga baris di atas `build_ikat.py`: `PERIODE`,
+`WEEK_LABELS`, dan `BULAN_PENDEK` (dipakai mencari kolom seperti
+`TGT OKT (4 WK)` dan `CASHBACK (RP) OKT`). Sisanya — kolom identitas, kolom
+angka, dan tabel strata — dicari sendiri lewat judulnya.
 
-**Tiap ganti bulan**, saat file target bulanan baru terbit dan daftar
-outletnya berubah:
+Workbook bentuk "POTENSI" yang lama tetap bisa dibaca:
 
 ```bash
-python3 web/tools/build_data.py target_oktober.xlsx \
-    --monitoring MONITORING_IKAT_TARGET_Q4_....xlsx
-python3 web/tools/build_single.py
+python3 web/tools/build_data.py target.xlsx [--monitoring form_monitoring.xlsx]
+python3 web/tools/refresh_monitoring.py MONITORING_....xlsx
 ```
 
-`--monitoring` opsional; tanpa itu semua angka datang dari file target saja.
-
-Yang perlu disesuaikan di `build_data.py` tiap ganti bulan:
-
-| Bagian | Isi |
-|---|---|
-| `PERIODE` | mis. `"Oktober 2026"` — dipakai di judul dan nama berkas CSV |
-| `WEEK_LABELS` | minggu bulan itu, mis. `["W40", …]`. Jumlahnya bebas; lebar kolom di web ikut menyesuaikan |
-| `SHEETS` | nama sheet dan label produknya (tandai `"galon": True` untuk sheet galon) |
-| `KOLOM`, `KOLOM_WEEK` | hanya kalau susunan kolomnya benar-benar bergeser |
-
-Indeks kolomnya 0-based (kolom A = 0, B = 1, …). Judul blok omset dan nama
-bulannya dibaca langsung dari baris header sheet, jadi tidak perlu diketik
-ulang tiap bulan. Sheet yang belum terdaftar dilewati dengan peringatan,
-bukan bikin error.
-
-Angka realisasi, kekurangan, dan achievement dihitung ulang dari kolom minggu
-dan kolom target, bukan disalin dari rumus Excel. Hasilnya dicocokkan ke
-seluruh baris workbook tiap kali data diperbarui.
+Koordinat outlet disimpan terpisah di `web/koordinat.json` supaya tidak ikut
+hilang saat daftar outlet berubah tiap bulan.
 
 ## Isi berkas
 
@@ -195,7 +169,9 @@ seluruh baris workbook tiap kali data diperbarui.
 | `styles.css` | tampilan, termasuk mode gelap dan tata letak HP |
 | `app.js` | filter, pencarian, rekap, panel detail, ekspor CSV |
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
-| `tools/build_data.py` | file target bulanan → `data.js` |
+| `tools/build_ikat.py` | workbook "IKAT" (Oktober dst) → `data.js` |
+| `tools/build_data.py` | workbook "POTENSI" (sampai September) → `data.js` |
+| `koordinat.json` | koordinat outlet, lepas dari data bulanan |
 | `tools/refresh_monitoring.py` | segarkan `data.js` dari form monitoring mingguan |
 | `tools/cashback.py` | tabel strata dan aturan cashback tiap program |
 | `tools/uji_cashback.py` | uji tabel strata terhadap form monitoring resmi |
