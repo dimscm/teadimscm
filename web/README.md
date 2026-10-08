@@ -92,7 +92,8 @@ Untuk workbook bentuk "POTENSI" yang lama, tabel strata ada di
 - **Pilih produk** lewat tab di atas, atau **Semua Produk** untuk gabungannya.
 - **Cari outlet** dengan mengetik nama outlet, nomor outlet, atau alamat. Bisa
   beberapa kata sekaligus, mis. `rifai agen` atau `2038524`.
-- **Filter** salesman, rayon, zona, tipe outlet (SO / GROMIN / GROSIR),
+- **Filter** salesman, rayon, zona, tipe outlet (SO / GROMIN / GROSIR), dasar
+  target (MID / MAX — tiap outlet boleh memakai salah satunya),
   keterangan (FIX IKAT TARGET / POTENSI), dan status pencapaian (belum ada
   order, di bawah 50%, 50–99%, 100% ke atas). Isi tiap dropdown menyesuaikan
   filter lain, jadi tidak pernah menghasilkan daftar kosong; filter yang

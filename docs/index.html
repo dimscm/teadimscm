@@ -668,6 +668,10 @@ button, input, select { font: inherit; color: inherit; }
       <label for="f-tipe">Tipe outlet</label>
       <select id="f-tipe"><option value="">Semua tipe</option></select>
     </div>
+    <div class="field" id="f-pilih-wrap">
+      <label for="f-pilih">Dasar target</label>
+      <select id="f-pilih"><option value="">MID &amp; maks</option></select>
+    </div>
     <div class="field" id="f-ket-wrap">
       <label for="f-ket">Keterangan</label>
       <select id="f-ket"><option value="">Semua keterangan</option></select>
@@ -768,6 +772,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     wilayah: "",
     zona: "",
     tipe: "",
+    pilih: "",
     ket: "",
     status: "",
     view: "outlet",
@@ -835,6 +840,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     if (skip !== "wilayah" && state.wilayah && r.wilayah !== state.wilayah) return false;
     if (skip !== "zona" && state.zona && r.zona !== state.zona) return false;
     if (skip !== "tipe" && state.tipe && r.tipe !== state.tipe) return false;
+    if (skip !== "pilih" && state.pilih && r.pilih !== state.pilih) return false;
     if (skip !== "ket" && state.ket && r.ket !== state.ket) return false;
     if (skip !== "status" && state.status && statusOf(r) !== state.status) return false;
 
@@ -863,10 +869,21 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
   };
 
   /* ── Isi dropdown mengikuti produk yang dipilih ───────────────────── */
+  // Beberapa filter punya urutan alami yang bukan alfabetis.
+  var URUTAN = { pilih: ["MID", "MAX"] };
+
   function uniq(rows, key) {
     var set = {};
     rows.forEach(function (r) { if (r[key]) set[r[key]] = 1; });
-    return Object.keys(set).sort();
+    var nilai = Object.keys(set).sort();
+    var urut = URUTAN[key];
+    if (urut) {
+      nilai.sort(function (a, b) {
+        var ia = urut.indexOf(a), ib = urut.indexOf(b);
+        return (ia < 0 ? urut.length : ia) - (ib < 0 ? urut.length : ib);
+      });
+    }
+    return nilai;
   }
 
   function fillSelect(el, values, keep) {
@@ -887,7 +904,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
 
     // Filter yang cuma punya satu nilai tidak menyaring apa pun — sembunyikan
     // saja supaya baris filter tidak penuh, terutama di layar HP.
-    ["wilayah", "zona", "tipe", "ket"].forEach(function (key) {
+    ["wilayah", "zona", "tipe", "pilih", "ket"].forEach(function (key) {
       var nilai = optionsFor(key);
       var cukup = nilai.length > 1;
       $("#f-" + key + "-wrap").hidden = !cukup;
@@ -1295,7 +1312,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       timer = setTimeout(function () { state.q = q.value; render(); }, 120);
     });
 
-    ["sales", "wilayah", "zona", "tipe", "ket", "status"].forEach(function (k) {
+    ["sales", "wilayah", "zona", "tipe", "pilih", "ket", "status"].forEach(function (k) {
       $("#f-" + k).addEventListener("change", function (e) { state[k] = e.target.value; render(); });
     });
 
@@ -1303,7 +1320,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
 
     $("#reset").addEventListener("click", function () {
       state.q = state.sales = state.wilayah = state.zona = "";
-      state.tipe = state.ket = state.status = "";
+      state.tipe = state.pilih = state.ket = state.status = "";
       q.value = "";
       $("#f-status").value = "";
       render();

@@ -41,6 +41,7 @@
     wilayah: "",
     zona: "",
     tipe: "",
+    pilih: "",
     ket: "",
     status: "",
     view: "outlet",
@@ -108,6 +109,7 @@
     if (skip !== "wilayah" && state.wilayah && r.wilayah !== state.wilayah) return false;
     if (skip !== "zona" && state.zona && r.zona !== state.zona) return false;
     if (skip !== "tipe" && state.tipe && r.tipe !== state.tipe) return false;
+    if (skip !== "pilih" && state.pilih && r.pilih !== state.pilih) return false;
     if (skip !== "ket" && state.ket && r.ket !== state.ket) return false;
     if (skip !== "status" && state.status && statusOf(r) !== state.status) return false;
 
@@ -136,10 +138,21 @@
   };
 
   /* ── Isi dropdown mengikuti produk yang dipilih ───────────────────── */
+  // Beberapa filter punya urutan alami yang bukan alfabetis.
+  var URUTAN = { pilih: ["MID", "MAX"] };
+
   function uniq(rows, key) {
     var set = {};
     rows.forEach(function (r) { if (r[key]) set[r[key]] = 1; });
-    return Object.keys(set).sort();
+    var nilai = Object.keys(set).sort();
+    var urut = URUTAN[key];
+    if (urut) {
+      nilai.sort(function (a, b) {
+        var ia = urut.indexOf(a), ib = urut.indexOf(b);
+        return (ia < 0 ? urut.length : ia) - (ib < 0 ? urut.length : ib);
+      });
+    }
+    return nilai;
   }
 
   function fillSelect(el, values, keep) {
@@ -160,7 +173,7 @@
 
     // Filter yang cuma punya satu nilai tidak menyaring apa pun — sembunyikan
     // saja supaya baris filter tidak penuh, terutama di layar HP.
-    ["wilayah", "zona", "tipe", "ket"].forEach(function (key) {
+    ["wilayah", "zona", "tipe", "pilih", "ket"].forEach(function (key) {
       var nilai = optionsFor(key);
       var cukup = nilai.length > 1;
       $("#f-" + key + "-wrap").hidden = !cukup;
@@ -568,7 +581,7 @@
       timer = setTimeout(function () { state.q = q.value; render(); }, 120);
     });
 
-    ["sales", "wilayah", "zona", "tipe", "ket", "status"].forEach(function (k) {
+    ["sales", "wilayah", "zona", "tipe", "pilih", "ket", "status"].forEach(function (k) {
       $("#f-" + k).addEventListener("change", function (e) { state[k] = e.target.value; render(); });
     });
 
@@ -576,7 +589,7 @@
 
     $("#reset").addEventListener("click", function () {
       state.q = state.sales = state.wilayah = state.zona = "";
-      state.tipe = state.ket = state.status = "";
+      state.tipe = state.pilih = state.ket = state.status = "";
       q.value = "";
       $("#f-status").value = "";
       render();
