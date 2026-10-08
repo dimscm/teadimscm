@@ -63,6 +63,26 @@ def tabel_untuk(produk, tipe_outlet):
     return produk
 
 
+def strata_web(produk):
+    """Strata satu produk dalam bentuk yang dipakai simulasi harga di web.
+
+    {kunci tipe outlet: [{min, zona, rate, rate2}, ...]} — ambangnya karton
+    sebulan, sama seperti tabel di atas. Produk yang tabelnya tidak tergantung
+    tipe outlet memakai kunci "".
+    """
+    if produk == "TPH":
+        kunci = {"SO": "TPH_SO", "GROMIN": "TPH_GROMIN"}
+    elif produk == "GALON":
+        kunci = {"SO": "GALON_SO", "GROMIN": "GALON_GROMIN"}
+    else:
+        kunci = {"": produk}
+    return {
+        tipe: [{"min": minimum, "zona": zona, "rate": rate, "rate2": None}
+               for minimum, zona, rate in STRATA[tabel]]
+        for tipe, tabel in kunci.items()
+    }
+
+
 def baris_strata(tabel, omset):
     """Baris strata untuk suatu volume, atau None kalau di bawah band terendah."""
     for baris in STRATA[tabel]:

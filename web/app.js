@@ -370,6 +370,12 @@
       ? '<a class="maplink" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
         r.lat + "," + r.lng + '">Buka di Google Maps</a>'
       : "";
+    // Simulasi harga dibuka dengan angka outlet ini, supaya sales bisa langsung
+    // menawarkan "kalau ambil segini, harga nettnya segini".
+    if (bandsSim(produkById(r.produkId) || {}, r.tipe).length) {
+      peta += '<button class="maplink simlink" type="button" data-sim="' + esc(r.uid) +
+        '">Simulasi harga</button>';
+    }
     if (r.up !== null && r.up !== undefined) extra += kv("Up target", pct(r.up));
     if (r.tgtWeek) extra += kv("Target / week", fmt(r.tgtWeek));
     if (r.ebs) {
@@ -446,6 +452,7 @@
 
   /* ── Ekspor CSV sesuai filter aktif ───────────────────────────────── */
   function exportCsv() {
+    if (state.view === "simulasi") return exportSim();
     var rows = filtered().sort(SORTS[state.sort]);
     var head = ["Produk", "Satuan", "Salesman", LBL_WILAYAH, "No Outlet", "Nama Outlet",
       "Alamat", "Kecamatan", "Kelurahan", "Tipe Outlet", "Channel", "Keterangan", "Zona",
@@ -505,19 +512,403 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
+  /* ── Simulasi harga ───────────────────────────────────────────────────
+     Workbook target tidak memuat harga jual, jadi harganya diisi di halaman
+     ini dan diingat per produk di peramban. Yang datang dari data adalah
+     tabel strata: volume sebulan menentukan zona, zona menentukan tarif
+     cashback per karton — dan tarif itu berlaku untuk SELURUH volume, jadi
+     naik satu zona memurahkan semua karton, bukan cuma tambahannya. */
+  var HARGA_KEY = "mt.harga.v1";
+  var hargaSimpan = bacaHarga();
+  var sim = { produk: "", siap: "", tipe: "", share: 1, vol: 0, tgt: 0, outlet: "" };
+
+  function bacaHarga() {
+    try { return JSON.parse(localStorage.getItem(HARGA_KEY)) || {}; } catch (e) { return {}; }
+  }
+
+  function simpanHarga() {
+    try { localStorage.setItem(HARGA_KEY, JSON.stringify(hargaSimpan)); } catch (e) { /* mode privat */ }
+  }
+
+  /* Harga disimpan per nama produk, bukan per id sheet: nama sheet ikut
+     berubah tiap kuartal, namanya tidak. */
+  function hargaProduk(p) {
+    var h = hargaSimpan[p.label] || {};
+    return { crt: Number(h.crt) || 0, isi: Number(h.isi) || 0 };
+  }
+
+  function setHarga(p, k, v) {
+    if (!hargaSimpan[p.label]) hargaSimpan[p.label] = {};
+    hargaSimpan[p.label][k] = Math.max(Number(v) || 0, 0);
+    simpanHarga();
+  }
+
+  /* Diskon efektif biasanya di bawah 10%, jadi satu angka desimal. */
+  function pct1(a) {
+    if (a === null || a === undefined || isNaN(a)) return "–";
+    var n = a * 100;
+    return (n < 10 ? n.toFixed(1).replace(".", ",") : String(Math.round(n))) + "%";
+  }
+
+  function produkBerstrata() {
+    return DATA.products.filter(function (p) {
+      var s = p.strata || {};
+      return Object.keys(s).some(function (k) { return s[k] && s[k].length; });
+    });
+  }
+
+  function produkSim() {
+    var list = produkBerstrata();
+    if (!list.length) return null;
+    var pilih = sim.produk || (state.produk !== "all" ? state.produk : "");
+    return list.filter(function (p) { return p.id === pilih; })[0] || list[0];
+  }
+
+  function tipeSim(p) {
+    var s = p.strata || {};
+    return Object.keys(s).filter(function (k) { return k && s[k].length; }).sort();
+  }
+
+  function bandsSim(p, tipe) {
+    var s = p.strata || {};
+    return s[(tipe || "").toUpperCase()] || s[""] || [];
+  }
+
+  function produkById(id) {
+    return DATA.products.filter(function (p) { return p.id === id; })[0] || null;
+  }
+
+  /* Band tersusun dari ambang terbesar ke terkecil, jadi yang pertama cocok
+     adalah zona yang berlaku. */
+  function tarifPada(bands, vol, share) {
+    for (var i = 0; i < bands.length; i++) {
+      if (vol >= bands[i].min) {
+        var b = bands[i];
+        var rate = (b.rate2 === null || b.rate2 === undefined)
+          ? b.rate
+          : b.rate * share + b.rate2 * (1 - share);
+        return { rate: rate, zona: b.zona, min: b.min };
+      }
+    }
+    return { rate: 0, zona: "", min: 0 };
+  }
+
+  function barisProduk(id) {
+    return ROWS.filter(function (r) { return r.produkId === id; });
+  }
+
+  /* Nilai awal yang masuk akal diambil dari outlet produk itu sendiri. */
+  function siapkanSim(p) {
+    if (sim.siap === p.id) return;
+    var rows = barisProduk(p.id);
+    var tipes = tipeSim(p);
+    var hitung = {};
+    rows.forEach(function (r) {
+      var t = (r.tipe || "").toUpperCase();
+      if (tipes.indexOf(t) > -1) hitung[t] = (hitung[t] || 0) + 1;
+    });
+    sim.tipe = tipes.sort(function (a, b) { return (hitung[b] || 0) - (hitung[a] || 0); })[0] || "";
+
+    var share = rows.map(function (r) { return r.share; })
+      .filter(function (v) { return v !== null && v !== undefined; });
+    sim.share = share.length
+      ? share.reduce(function (a, b) { return a + b; }, 0) / share.length
+      : 1;
+
+    var tgt = rows.map(function (r) { return r.tgt; })
+      .filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
+    var bands = bandsSim(p, sim.tipe);
+    sim.vol = Math.round(tgt.length
+      ? tgt[Math.floor(tgt.length / 2)]
+      : (bands.length ? bands[bands.length - 1].min : 100));
+    sim.tgt = sim.vol;
+    sim.outlet = "";
+    sim.produk = p.id;
+    sim.siap = p.id;
+  }
+
+  function renderSimulasi() {
+    var p = produkSim();
+    if (!p) {
+      return '<div class="tbl"><div class="empty">Tabel strata produk ini belum ada di data,' +
+        "<br>jadi simulasi harganya belum bisa dihitung.</div></div>";
+    }
+    siapkanSim(p);
+
+    var list = produkBerstrata();
+    var tipes = tipeSim(p);
+    var h = hargaProduk(p);
+    var satuan = p.satuan || "crt";
+    var bands = bandsSim(p, sim.tipe);
+    var maxVol = Math.max(Math.round((bands.length ? bands[0].min : 100) * 1.25), sim.vol);
+    var syaratAch = p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch;
+    var duaUkuran = (p.ukuran || []).length > 1;
+
+    var f = "";
+    f += '<div class="field"><label for="s-produk">Produk</label><select id="s-produk">' +
+      list.map(function (x) {
+        return '<option value="' + esc(x.id) + '"' + (x.id === p.id ? " selected" : "") + ">" +
+          esc(x.label) + "</option>";
+      }).join("") + "</select></div>";
+
+    if (tipes.length > 1) {
+      f += '<div class="field"><label for="s-tipe">Tipe outlet</label><select id="s-tipe">' +
+        tipes.map(function (t) {
+          return '<option value="' + esc(t) + '"' + (t === sim.tipe ? " selected" : "") + ">" +
+            esc(t) + "</option>";
+        }).join("") + "</select></div>";
+    }
+
+    f += '<div class="field"><label for="s-harga">Harga jual / ' + esc(satuan) + ' (Rp)</label>' +
+      '<input id="s-harga" type="number" inputmode="numeric" min="0" step="1000" placeholder="isi harga" value="' +
+      (h.crt || "") + '"></div>';
+    f += '<div class="field"><label for="s-isi">Isi / ' + esc(satuan) + ' (opsional)</label>' +
+      '<input id="s-isi" type="number" inputmode="numeric" min="0" step="1" placeholder="mis. 24" value="' +
+      (h.isi || "") + '"></div>';
+    f += '<div class="field"><label for="s-vol">Volume (' + esc(satuan) + ')</label>' +
+      '<input id="s-vol" type="number" inputmode="numeric" min="0" step="1" value="' + sim.vol + '"></div>';
+    if (syaratAch) {
+      f += '<div class="field"><label for="s-tgt">Target bulan ini</label>' +
+        '<input id="s-tgt" type="number" inputmode="numeric" min="0" step="1" value="' + sim.tgt + '"></div>';
+    }
+    if (duaUkuran) {
+      f += '<div class="field"><label for="s-share">Porsi ' + esc(p.ukuran[0]) + ' (%)</label>' +
+        '<input id="s-share" type="number" inputmode="numeric" min="0" max="100" step="5" value="' +
+        Math.round(sim.share * 100) + '"></div>';
+    }
+
+    return '<div class="sim">' +
+      (sim.outlet ? '<div class="sim-from">Prasetel dari <b>' + esc(sim.outlet) + "</b></div>" : "") +
+      '<div class="sim-form">' + f + "</div>" +
+      '<label class="sim-range"><span>Geser volume</span>' +
+      '<input id="s-range" type="range" min="0" max="' + maxVol + '" step="1" value="' + sim.vol +
+      '" aria-label="Volume"></label>' +
+      '<div id="sim-out"></div>' +
+      "</div>";
+  }
+
+  /* Hanya bagian hasil yang digambar ulang saat angka diketik, supaya kursor
+     tidak lompat keluar dari kotak isian. */
+  function drawSim() {
+    var p = produkSim();
+    if (!p || !$("#sim-out")) return;
+    var satuan = p.satuan || "crt";
+    var h = hargaProduk(p);
+    var bands = bandsSim(p, sim.tipe);
+    var vol = sim.vol;
+    var kini = tarifPada(bands, vol, sim.share);
+    var syaratAch = p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch;
+    var gugurAch = syaratAch && sim.tgt > 0 && vol < sim.tgt;
+    var rate = gugurAch ? 0 : kini.rate;
+    var cb = Math.round(vol * rate);
+    var nett = h.crt ? h.crt - rate : null;
+    var bayar = h.crt ? h.crt * vol - cb : null;
+
+    var catatanTarif = gugurAch
+      ? "tertahan: target belum tercapai"
+      : (kini.zona ? "zona " + kini.zona : "di bawah strata terendah");
+
+    var kartu =
+      '<div class="card"><div class="k">Zona</div><div class="v"><span class="pill ' +
+      (gugurAch ? "crit" : kini.zona ? "good" : "crit") + '">' +
+      (gugurAch ? "tertahan" : kini.zona || "–") + "</span></div>" +
+      '<div class="m">' + fmt(vol) + " " + esc(satuan) + " / bulan</div></div>" +
+      card("Tarif cashback", rp(rate) + " /" + satuan, catatanTarif) +
+      card("Total cashback", rp(cb), vol > 0 ? "untuk " + fmt(vol) + " " + satuan : "belum ada volume") +
+      card("Harga nett /" + satuan, nett === null ? "–" : rp(nett),
+        h.crt ? "dari " + rp(h.crt) + (h.isi ? " · " + rp(nett / h.isi) + " /pcs" : "")
+          : "isi harga jual dulu") +
+      card("Diskon efektif", h.crt ? pct1(rate / h.crt) : "–",
+        h.crt ? "potongan dari harga jual" : "butuh harga jual") +
+      card("Total bayar", bayar === null ? "–" : rp(bayar),
+        h.crt ? "setelah cashback" : "butuh harga jual");
+
+    // Band berikutnya di atas volume sekarang: inilah tawaran yang dipakai di
+    // depan toko, karena tarif baru berlaku untuk seluruh volume.
+    var naik = null;
+    for (var i = bands.length - 1; i >= 0; i--) {
+      if (bands[i].min > vol) { naik = bands[i]; break; }
+    }
+    var hint = "";
+    if (naik) {
+      var rNaik = tarifPada(bands, naik.min, sim.share).rate;
+      var cbNaik = Math.round(naik.min * rNaik);
+      hint = '<div class="sim-hint"><b>Tambah ' + fmt(naik.min - vol) + " " + esc(satuan) +
+        "</b> lagi (jadi " + fmt(naik.min) + ") → zona " + esc(naik.zona) + ", tarif " +
+        rp(rNaik) + " /" + esc(satuan) + ". Total cashback " + rp(cbNaik) +
+        " (naik " + rp(cbNaik - cb) + ")" +
+        (h.crt ? ", harga nett " + rp(h.crt - rNaik) + " /" + esc(satuan) : "") +
+        ". Tarif zona baru berlaku untuk seluruh volume, bukan cuma tambahannya.</div>";
+    } else if (bands.length) {
+      hint = '<div class="sim-hint">Sudah di zona tertinggi program ini.</div>';
+    }
+
+    var ladHead = '<div class="lad head"><div>Zona</div><div class="r">Minimal</div>' +
+      '<div class="r">Tarif /' + esc(satuan) + '</div><div class="r">Harga nett</div>' +
+      '<div class="r">Dari volume ini</div></div>';
+    var ladBody = bands.slice().reverse().map(function (b) {
+      var r2 = tarifPada(bands, b.min, sim.share).rate;
+      var aktif = b.zona === kini.zona && !gugurAch;
+      var selisih = b.min - vol;
+      return '<div class="lad' + (aktif ? " on" : "") + '">' +
+        '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona || "–") + "</span></div>" +
+        '<div class="r num"><span class="mlabel">Minimal </span>' + fmt(b.min) + " " + esc(satuan) +
+        '<div class="sub2">' + fmt(b.min / (WEEKS.length || 4)) + " /minggu</div></div>" +
+        '<div class="r num"><span class="mlabel">Tarif </span>' + rp(r2) + "</div>" +
+        '<div class="r num"><span class="mlabel">Nett </span>' + (h.crt ? rp(h.crt - r2) : "–") + "</div>" +
+        '<div class="r num"><span class="mlabel">Selisih </span>' +
+        (selisih > 0 ? "+" + fmt(selisih) + " " + esc(satuan)
+          : aktif ? "zona sekarang" : "terlampaui") + "</div>" +
+        "</div>";
+    }).join("");
+
+    $("#sim-out").innerHTML =
+      '<section class="cards sim-cards">' + kartu + "</section>" +
+      hint +
+      (syaratAch
+        ? '<p class="note">Nipis Madu hanya dibayar kalau target bulan itu tercapai, jadi volume di bawah target tidak menghasilkan cashback.</p>'
+        : "") +
+      '<div class="sec">Strata ' + esc(p.label) +
+      (sim.tipe ? " · " + esc(sim.tipe) : "") + " — " + (WEEKS.length || 4) + " minggu</div>" +
+      '<div class="tbl">' + ladHead + ladBody + "</div>" +
+      '<p class="note">Harga jual tidak ada di workbook target, jadi angka harga yang dipakai di sini' +
+      " adalah yang diisi sendiri dan tersimpan di peramban ini saja. Tarif cashback, zona, dan" +
+      " ambangnya datang dari tabel strata program di file.</p>";
+  }
+
+  /* Tangga strata hasil simulasi, buat dibawa ke toko atau ditempel di grup. */
+  function exportSim() {
+    var p = produkSim();
+    if (!p) return;
+    var h = hargaProduk(p);
+    var satuan = p.satuan || "crt";
+    var bands = bandsSim(p, sim.tipe);
+    var baris = [["Produk", p.label], ["Tipe outlet", sim.tipe || "semua"],
+      ["Satuan", satuan], ["Jumlah minggu", WEEKS.length || 4],
+      ["Harga jual / " + satuan, h.crt || ""], ["Isi / " + satuan, h.isi || ""],
+      ["Volume disimulasikan", sim.vol], [],
+      ["Zona", "Minimal (" + satuan + ")", "Minimal / minggu", "Tarif /" + satuan,
+        "Harga nett /" + satuan, "Total cashback di minimal", "Selisih dari volume"]];
+
+    bands.slice().reverse().forEach(function (b) {
+      var r = tarifPada(bands, b.min, sim.share).rate;
+      baris.push([b.zona, b.min, Math.round(b.min / (WEEKS.length || 4)), Math.round(r),
+        h.crt ? Math.round(h.crt - r) : "", Math.round(b.min * r), Math.round(b.min - sim.vol)]);
+    });
+
+    var teks = baris.map(function (cols) {
+      return cols.map(function (c) {
+        var s = c === null || c === undefined ? "" : String(c);
+        return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(";");
+    }).join("\r\n");
+
+    saveFile("simulasi-harga-" + p.label.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".csv",
+      "﻿" + teks);
+  }
+
+  function bindSim() {
+    var p = produkSim();
+    if (!p) return;
+    drawSim();
+
+    var ps = $("#s-produk");
+    if (ps) {
+      ps.addEventListener("change", function () {
+        sim.produk = ps.value;
+        sim.siap = "";
+        render();
+      });
+    }
+    var ts = $("#s-tipe");
+    if (ts) {
+      ts.addEventListener("change", function () { sim.tipe = ts.value; drawSim(); });
+    }
+
+    var vol = $("#s-vol"), rng = $("#s-range");
+    function setVol(v, dari) {
+      sim.vol = Math.max(Math.round(Number(v) || 0), 0);
+      if (dari !== "vol") vol.value = sim.vol;
+      if (dari !== "range" && sim.vol <= Number(rng.max)) rng.value = sim.vol;
+      drawSim();
+    }
+    vol.addEventListener("input", function () { setVol(vol.value, "vol"); });
+    rng.addEventListener("input", function () { setVol(rng.value, "range"); });
+
+    $("#s-harga").addEventListener("input", function (e) {
+      setHarga(p, "crt", e.target.value);
+      drawSim();
+    });
+    $("#s-isi").addEventListener("input", function (e) {
+      setHarga(p, "isi", e.target.value);
+      drawSim();
+    });
+    var tg = $("#s-tgt");
+    if (tg) {
+      tg.addEventListener("input", function () {
+        sim.tgt = Math.max(Math.round(Number(tg.value) || 0), 0);
+        drawSim();
+      });
+    }
+    var sh = $("#s-share");
+    if (sh) {
+      sh.addEventListener("input", function () {
+        sim.share = Math.min(Math.max(Number(sh.value) || 0, 0), 100) / 100;
+        drawSim();
+      });
+    }
+  }
+
+  /* Buka simulasi dengan angka satu outlet: tipe, komposisi, dan targetnya. */
+  function simDariOutlet(uid) {
+    var r = ROWS.filter(function (x) { return x.uid === uid; })[0];
+    if (!r) return;
+    var p = produkById(r.produkId);
+    if (!p) return;
+    sim.produk = p.id;
+    sim.siap = p.id;
+    var tipes = tipeSim(p);
+    sim.tipe = tipes.indexOf((r.tipe || "").toUpperCase()) > -1 ? (r.tipe || "").toUpperCase() : (tipes[0] || "");
+    sim.share = r.share === null || r.share === undefined ? 1 : r.share;
+    sim.vol = Math.round(r.tgt || r.total || 0);
+    sim.tgt = Math.round(r.tgt || 0);
+    sim.outlet = r.nama + " — target " + fmt(r.tgt) + " " + (r.satuan || "crt") +
+      ", realisasi " + fmt(r.total);
+    closeDetail();
+    pilihView("simulasi");
+  }
+
+  function pilihView(nama) {
+    state.view = nama;
+    Array.prototype.forEach.call($("#views").children, function (t) {
+      t.setAttribute("aria-pressed", String(t.dataset.view === nama));
+    });
+    render();
+  }
+
   /* ── Render ───────────────────────────────────────────────────────── */
   function render() {
     syncSelects();
+
+    // Simulasi harga tidak memakai daftar outlet, jadi filter dan ringkasannya
+    // ikut disembunyikan supaya layarnya bersih — terutama di HP.
+    var simView = state.view === "simulasi";
+    $(".filters").hidden = simView;
+    $("#summary").hidden = simView;
+
     var rows = filtered();
-    renderSummary(rows);
+    if (simView) $("#satuan-note").hidden = true;
+    else renderSummary(rows);
 
     var html;
-    if (state.view === "sales") html = renderGroups(rows, "sales");
+    if (simView) html = renderSimulasi();
+    else if (state.view === "sales") html = renderGroups(rows, "sales");
     else if (state.view === "wilayah") html = renderGroups(rows, "wilayah");
     else html = renderOutlets(rows.slice().sort(SORTS[state.sort]));
 
     $("#list").innerHTML = html;
-    $("#count").textContent = rows.length + " dari " + byProduct().length + " outlet";
+    if (simView) bindSim();
+    $("#count").textContent = simView ? "" : rows.length + " dari " + byProduct().length + " outlet";
     $("#sort-wrap").hidden = state.view !== "outlet";
   }
 
@@ -598,18 +989,21 @@
 
     $("#views").addEventListener("click", function (e) {
       var b = e.target.closest("button");
-      if (!b) return;
-      state.view = b.dataset.view;
-      Array.prototype.forEach.call($("#views").children, function (t) {
-        t.setAttribute("aria-pressed", String(t === b));
-      });
-      render();
+      if (b) pilihView(b.dataset.view);
     });
 
     $("#list").addEventListener("click", function (e) {
       var row = e.target.closest(".tr[data-uid]");
       if (row) openDetail(row.dataset.uid);
     });
+
+    $("#detail").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-sim]");
+      if (b) simDariOutlet(b.dataset.sim);
+    });
+
+    // Produk tanpa tabel strata tidak bisa disimulasikan.
+    $("#view-simulasi").hidden = !produkBerstrata().length;
 
     $("#export").addEventListener("click", exportCsv);
     $("#scrim").addEventListener("click", closeDetail);

@@ -425,6 +425,75 @@ button, input, select { font: inherit; color: inherit; }
 .grp .name { font-weight: 600; }
 .grp .bar { margin-top: 0; }
 
+/* ── Simulasi harga ───────────────────────────────────────────────────── */
+.sim {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.sim-from {
+  font-size: 13px;
+  color: var(--ink-2);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-bottom: 12px;
+}
+
+.sim-form { display: flex; flex-wrap: wrap; gap: 10px; }
+.sim-form .field { flex: 1 1 150px; max-width: 220px; }
+
+.sim-range { display: block; margin: 14px 0 4px; }
+.sim-range span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.sim-range input { width: 100%; accent-color: var(--accent); }
+
+.sim-cards { margin: 14px 0 0; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); }
+.sim-cards .card { background: var(--surface-2); }
+.sim-cards .card .v { font-size: 19px; }
+
+.sim-hint {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.sim-hint b { font-variant-numeric: tabular-nums; }
+
+/* Tangga strata: zona, ambang, tarif, harga nett. */
+.lad {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 13px;
+  border-top: 1px solid var(--line);
+}
+.lad.head {
+  border-top: 0;
+  background: var(--surface-2);
+  font-size: 10px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lad .r { text-align: right; }
+.lad.on { background: var(--accent-soft); }
+.lad .pill { min-width: 40px; }
+
 /* ── Panel detail ─────────────────────────────────────────────────────── */
 .scrim {
   position: fixed;
@@ -478,6 +547,10 @@ button, input, select { font: inherit; color: inherit; }
 }
 .maplink:hover { border-color: var(--accent); background: var(--accent-soft); }
 .maplink::before { content: "📍 "; }
+
+button.maplink { background: var(--surface); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.simlink { margin-left: 6px; }
+.simlink::before { content: "🧮 "; }
 
 .kv {
   display: grid;
@@ -592,6 +665,18 @@ button, input, select { font: inherit; color: inherit; }
   .tr .weeks span { text-align: left; }
   .tr .weeks span::before { content: attr(data-w) " "; color: var(--muted); }
   .tr .mlabel { color: var(--muted); }
+
+  .lad.head { display: none; }
+  .lad {
+    grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px 10px;
+  }
+  .lad > * { min-width: 0; }
+  .lad > div:nth-child(1) { grid-row: 1 / span 2; }
+  .lad .r { text-align: left; font-size: 12px; }
+  .lad .mlabel { color: var(--muted); }
+
+  .sim-form .field { flex: 1 1 calc(50% - 5px); max-width: none; }
 
   .grp {
     grid-template-columns: 1fr auto;

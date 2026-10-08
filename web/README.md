@@ -87,6 +87,44 @@ Untuk workbook bentuk "POTENSI" yang lama, tabel strata ada di
 > Bonus triwulan Juli–September **belum** masuk web, karena hasil triwulannya
 > memang belum keluar. Yang dihitung hanya bulan berjalan.
 
+## Simulasi harga
+
+Tombol **Simulasi Harga** di baris tampilan (sebelah Per Salesman / Per Rayon)
+menjawab pertanyaan toko: *"kalau saya ambil segini, harganya jadi berapa?"*
+
+Isi volume — lewat kotak isian atau penggeser — dan halaman menampilkan zona,
+tarif cashback per karton, total cashback, harga nett, diskon efektif, dan
+total bayar. Di bawahnya seluruh tangga strata program itu ditampilkan, dengan
+baris zona yang sedang berlaku disorot, plus satu kalimat tawaran:
+
+> Tambah 1.400 crt lagi (jadi 2.600) → zona C, tarif Rp 800 /crt. Total
+> cashback Rp 2.080.000 (naik Rp 1.240.000).
+
+Kalimat itu yang paling berguna di depan toko, karena **tarif zona baru
+berlaku untuk seluruh volume, bukan cuma tambahannya** — naik satu zona
+memurahkan semua karton sekaligus.
+
+Yang perlu diperhatikan:
+
+- **Harga jual diisi sendiri.** Workbook target tidak memuat harga sama
+  sekali, jadi tidak ada harga yang bisa diambil dari data. Harga (dan isi per
+  karton, kalau mau lihat harga per pcs) diketik di halaman ini dan diingat
+  per produk di peramban masing-masing — tidak ikut terkirim ke mana pun dan
+  tidak ikut di berkas yang dibagikan. Kalau daftar harga resminya dikirim,
+  angkanya bisa dipasang sebagai bawaan supaya sales tidak perlu mengetik.
+- **Tarif, zona, dan ambangnya datang dari file**, yaitu tabel strata tiap
+  sheet. Tabel itu sekarang ikut diekspor ke `data.js` supaya browser bisa
+  menghitung zona pada volume berapa pun, bukan cuma pada target. Ambangnya
+  dikonversi jadi karton sebulan (min/minggu × jumlah minggu).
+- **TPH** punya tangga berbeda untuk SO dan GROMIN, jadi tipe outletnya bisa
+  dipilih. **LM 1500+330** tarifnya campuran dua ukuran, jadi ada isian porsi
+  1500ML. **Nipis Madu** hanya dibayar kalau target tercapai — di bawah target
+  simulasinya menunjukkan cashback tertahan.
+- **Klik satu outlet → Simulasi harga** membuka simulasi dengan angka outlet
+  itu: tipe, komposisi ukuran, dan targetnya sebagai volume awal.
+- **Unduh CSV** saat tampilan simulasi aktif mengekspor tangga stratanya,
+  lengkap dengan harga nett tiap zona.
+
 ## Yang bisa dilakukan
 
 - **Pilih produk** lewat tab di atas, atau **Semua Produk** untuk gabungannya.
@@ -102,6 +140,8 @@ Untuk workbook bentuk "POTENSI" yang lama, tabel strata ada di
   ikut berubah mengikuti filter yang aktif.
 - **Rekap Per Salesman / Per Rayon** untuk melihat pencapaian tiap orang atau
   tiap rayon.
+- **Simulasi Harga** untuk menghitung harga nett dan cashback pada volume
+  berapa pun (lihat bagian di atas).
 - **Klik satu outlet** untuk melihat sisa cashback dan target bulan ini di
   paling atas, lalu tautan **Buka di Google Maps** (kalau koordinatnya ada),
   realisasi per minggu, target MAX dan achievement-nya, tipe outlet,

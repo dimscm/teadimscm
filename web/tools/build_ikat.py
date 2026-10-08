@@ -136,14 +136,21 @@ def kolom_minggu(rows, hdr):
     return None
 
 
+def nama_ukuran(judul):
+    """'CB 1500 /CRT' -> '1500ML'; dipakai melabeli dua tarif LM 1500+330."""
+    angka = re.search(r"\d{3,4}", judul)
+    return f"{angka.group()}ML" if angka else ""
+
+
 def baca_strata(rows, nama_sheet):
     """Tabel strata di dalam sheet.
 
-    Kembalikan {kunci tipe outlet: [(min crt/wk, zona, rate, rate kedua), ...]}.
-    TPH memuat dua tabel terpisah untuk SO dan GROMIN; produk lain satu tabel
-    yang dipakai semua tipe (kuncinya "").
+    Kembalikan ({kunci tipe outlet: [(min crt/wk, zona, rate, rate kedua), ...]},
+    nama ukuran tiap kolom tarif). TPH memuat dua tabel terpisah untuk SO dan
+    GROMIN; produk lain satu tabel yang dipakai semua tipe (kuncinya "").
     """
     hasil = {}
+    ukuran = []
     for i, r in enumerate(rows):
         for j, v in enumerate(r):
             if kunci(v) not in JUDUL_STRATA:
@@ -185,10 +192,27 @@ def baca_strata(rows, nama_sheet):
 
             if tabel and tipe not in hasil:
                 hasil[tipe] = sorted(tabel, reverse=True)
+                if len(rate_kol) > 1 and not ukuran:
+                    ukuran = [nama_ukuran(judul[c]) for c in rate_kol]
 
     if not hasil:
         print(f"  ! {nama_sheet}: tabel strata tidak ditemukan, cashback target dilewati")
-    return hasil
+    return hasil, ukuran
+
+
+def strata_web(strata):
+    """Strata untuk simulasi di browser.
+
+    Ambangnya diubah jadi karton SEBULAN supaya di web bisa langsung
+    dibandingkan dengan volume bulanan; di sheet angkanya per minggu.
+    """
+    n = len(WEEK_LABELS)
+    return {
+        tipe: [{"min": round(minimum * n, 2), "zona": zona,
+                "rate": round(rate), "rate2": None if rate2 is None else round(rate2)}
+               for minimum, zona, rate, rate2 in tabel]
+        for tipe, tabel in strata.items()
+    }
 
 
 def tarif_di(strata, tipe_outlet, per_minggu, share_utama=1.0):
@@ -260,7 +284,7 @@ def baca_sheet(ws, label, satuan, koordinat):
         raise SystemExit(f"{ws.title}: kolom wajib tidak ketemu: {', '.join(hilang)}")
 
     k_minggu = kolom_minggu(rows, hdr)
-    strata = baca_strata(rows, ws.title)
+    strata, ukuran = baca_strata(rows, ws.title)
 
     hasil = []
     tanpa_sales = 0
@@ -329,6 +353,8 @@ def baca_sheet(ws, label, satuan, koordinat):
             "pilih": rapikan(raw[kol["pilih"]]).upper() if kol["pilih"] is not None else "",
             "weeks": weeks,
             "total": round(total, 2),
+            # Komposisi ukuran utama (LM 1500+330), dipakai simulasi harga.
+            "share": round(share, 4) if share != 1.0 else None,
             "history": riwayat(rows, hdr, raw),
             "cb": {
                 "tarif": round(rate_now or 0),
@@ -348,7 +374,7 @@ def baca_sheet(ws, label, satuan, koordinat):
             baris["lat"], baris["lng"] = titik
         hasil.append(baris)
 
-    return hasil, tanpa_sales
+    return hasil, tanpa_sales, strata_web(strata), ukuran
 
 
 def main():
@@ -369,7 +395,7 @@ def main():
         if label is None:
             print(f"  ! sheet '{ws.title}' dilewati (produknya tidak dikenali)")
             continue
-        rows, tanpa = baca_sheet(ws, label, satuan, koordinat)
+        rows, tanpa, strata, ukuran = baca_sheet(ws, label, satuan, koordinat)
         if not rows:
             continue
         products.append({
@@ -377,6 +403,10 @@ def main():
             "label": label,
             "satuan": satuan,
             "zonaLabel": "Zona",
+            # Strata ikut ke web supaya simulasi harga bisa menghitung zona dan
+            # tarif pada volume berapa pun, bukan cuma pada target.
+            "strata": strata,
+            "ukuran": ukuran,
             "rows": rows,
         })
         catatan = f"  (+{tanpa} tanpa salesman, dilewati)" if tanpa else ""

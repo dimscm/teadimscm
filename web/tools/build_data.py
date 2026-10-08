@@ -301,6 +301,9 @@ def build(xlsx_path, monitoring_path=None):
             "label": cfg["label"],
             "satuan": SATUAN_GALON if cfg.get("galon") else "crt",
             "zonaLabel": "Zona",
+            # Dipakai simulasi harga di web: zona dan tarif pada volume apa pun.
+            "strata": cashback.strata_web(cfg["program"]),
+            "ukuran": [],
             "rows": rows,
         })
         catatan = f"  (+{tanpa} tanpa salesman, dilewati)" if tanpa else ""
