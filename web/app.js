@@ -513,14 +513,29 @@
   }
 
   /* ── Simulasi harga ───────────────────────────────────────────────────
-     Workbook target tidak memuat harga jual, jadi harganya diisi di halaman
-     ini dan diingat per produk di peramban. Yang datang dari data adalah
-     tabel strata: volume sebulan menentukan zona, zona menentukan tarif
-     cashback per karton — dan tarif itu berlaku untuk SELURUH volume, jadi
-     naik satu zona memurahkan semua karton, bukan cuma tambahannya. */
+     Sheet "SIMULASI NETT ..." di workbook membawa price list, tangga DOF,
+     tabel ikat target, dan bonus — jadi halaman ini bisa menjawab pertanyaan
+     toko secara lengkap: "kalau ambil segini, nett akhirnya berapa?"
+
+     Rumusnya persis yang ditulis di sheet itu:
+       TPH  nett akhir = PL − DOF − cashback/crt − bonus/crt
+       LM   nett akhir = nett DOF − cashback/crt − bonus triwulan/crt
+     Zona TPH dari total mix sebulan; zona LM dari rata-rata mingguan.
+
+     Produk yang tidak punya sheet simulasi (Nipis Madu) tetap dapat simulasi
+     sederhana: strata cashback, dengan harga diisi sendiri. */
+  var SIM = DATA.simulasi || null;
+  var NWEEK = (SIM && SIM.nweek) || WEEKS.length || 4;
   var HARGA_KEY = "mt.harga.v1";
   var hargaSimpan = bacaHarga();
-  var sim = { produk: "", siap: "", tipe: "", share: 1, vol: 0, tgt: 0, outlet: "" };
+
+  var sim = {
+    produk: "", siap: "",
+    channel: "", pl: "baru",
+    q1: 0, q2: 0, qLain: 0,
+    tw: "BELUM", capai: true, w03: true, syarat: false,
+    share: 1, vol: 0, tgt: 0, outlet: ""
+  };
 
   function bacaHarga() {
     try { return JSON.parse(localStorage.getItem(HARGA_KEY)) || {}; } catch (e) { return {}; }
@@ -530,7 +545,7 @@
     try { localStorage.setItem(HARGA_KEY, JSON.stringify(hargaSimpan)); } catch (e) { /* mode privat */ }
   }
 
-  /* Harga disimpan per nama produk, bukan per id sheet: nama sheet ikut
+  /* Harga manual disimpan per nama produk, bukan per id sheet: nama sheet ikut
      berubah tiap kuartal, namanya tidak. */
   function hargaProduk(p) {
     var h = hargaSimpan[p.label] || {};
@@ -550,8 +565,22 @@
     return (n < 10 ? n.toFixed(1).replace(".", ",") : String(Math.round(n))) + "%";
   }
 
+  function produkById(id) {
+    return DATA.products.filter(function (p) { return p.id === id; })[0] || null;
+  }
+
+  /* Produk mana memakai model yang mana. */
+  function jenisSim(p) {
+    var l = (p.label || "").toUpperCase();
+    if (SIM && SIM.tph && l.indexOf("TPH") > -1) return "tph";
+    if (SIM && SIM.lm && l.indexOf("LM 600") > -1) return "lm600";
+    if (SIM && SIM.lm && l.indexOf("1500") > -1) return "lmmix";
+    return "umum";
+  }
+
   function produkBerstrata() {
     return DATA.products.filter(function (p) {
+      if (jenisSim(p) !== "umum") return true;
       var s = p.strata || {};
       return Object.keys(s).some(function (k) { return s[k] && s[k].length; });
     });
@@ -564,9 +593,259 @@
     return list.filter(function (p) { return p.id === pilih; })[0] || list[0];
   }
 
-  function tipeSim(p) {
+  /* Channel yang tersedia: TPH ikut tabel ikatnya, LM ikut kolom harga. */
+  function channelSim(jenis, p) {
+    if (jenis === "tph") return Object.keys(SIM.tph.ikat).sort();
+    if (jenis === "lm600" || jenis === "lmmix") {
+      var baris = SIM.lm.nett[0];
+      return Object.keys((baris.harga["600"] || baris.harga["1500"] || {})).sort();
+    }
     var s = p.strata || {};
     return Object.keys(s).filter(function (k) { return k && s[k].length; }).sort();
+  }
+
+  /* Tipe outlet di data target (SO / GROMIN / GROSIR) dipetakan ke channel
+     harga; yang bukan SO/GROMIN masuk harga retail. */
+  function channelDari(tipe, daftar) {
+    var t = (tipe || "").toUpperCase();
+    if (daftar.indexOf(t) > -1) return t;
+    if (daftar.indexOf("RETAIL") > -1) return "RETAIL";
+    return daftar[0] || "";
+  }
+
+  function bandPada(tabel, nilai) {
+    for (var i = 0; i < tabel.length; i++) {
+      if (nilai >= tabel[i].min) return tabel[i];
+    }
+    return null;
+  }
+
+  /* ── Model tiap program (rumusnya dari sheet simulasi) ──────────────── */
+  function dofTph(mix, syarat) {
+    var pilih = { min: 0, disc: 0 };
+    SIM.tph.dof.forEach(function (b) {
+      if (mix >= b.min && (!b.syarat || syarat) && b.disc >= pilih.disc) pilih = b;
+    });
+    return pilih;
+  }
+
+  function hitungTph() {
+    var q350 = sim.q1, q500 = sim.q2, mix = q350 + q500;
+    var dof = dofTph(mix, sim.syarat);
+    var harga = SIM.tph.pl[sim.channel] || {};
+    var pl350 = (harga["350"] || {})[sim.pl] || 0;
+    var pl500 = (harga["500"] || {})[sim.pl] || 0;
+    var nett350 = pl350 - dof.disc, nett500 = pl500 - dof.disc;
+    var band = bandPada(SIM.tph.ikat[sim.channel] || [], mix);
+    var cb = sim.capai && band ? band.cb : 0;
+    var bonusCrt = (sim.capai && sim.w03 && band) ? band.bonus : 0;
+    var nilaiBonus = bonusCrt * nett350;
+    var bonusCrtRp = mix ? nilaiBonus / mix : 0;
+    return {
+      mix: mix, dof: dof.disc, pl350: pl350, pl500: pl500,
+      nett350: nett350, nett500: nett500, band: band,
+      zona: band ? band.zona : "", cb: cb, totalCb: mix * cb,
+      bonusCrt: bonusCrt, nilaiBonus: nilaiBonus, bonusCrtRp: bonusCrtRp,
+      akhir350: nett350 - cb - bonusCrtRp, akhir500: nett500 - cb - bonusCrtRp,
+      benefit: dof.disc * mix + mix * cb + nilaiBonus
+    };
+  }
+
+  function nettLm(mix, sku, channel, pl) {
+    var baris = bandPada(SIM.lm.nett, mix);
+    // Tabel sudah berisi harga nett, bukan potongan. Tier yang lebih tinggi
+    // tidak boleh lebih mahal, jadi dipakai yang termurah sampai qty itu.
+    var harga = 0;
+    SIM.lm.nett.forEach(function (b) {
+      if (mix >= b.min) {
+        var h = (b.harga[sku] || {})[channel];
+        if (h && (!harga || h < harga)) harga = h;
+      }
+    });
+    if (!harga && baris) harga = (baris.harga[sku] || {})[channel] || 0;
+    if (pl === "lama") harga -= SIM.lm.kenaikan[sku] || 0;
+    return harga;
+  }
+
+  function bonusTw(band, tw, kunci90, kunci100) {
+    if (!band) return 0;
+    if (tw === "≥100%") return band[kunci100] || 0;
+    if (tw === "90-99%") return band[kunci90] || 0;
+    return 0;
+  }
+
+  function hitungLm600() {
+    var q = sim.q1, mix = q + sim.qLain;
+    var nett = nettLm(mix, "600", sim.channel, sim.pl);
+    var perWk = q / NWEEK;
+    var band = bandPada(SIM.lm.ikat600, perWk);
+    var cb = band ? band.cb : 0;
+    var bonus = bonusTw(band, sim.tw, "tw90", "tw100");
+    return {
+      mix: mix, perWk: perWk, nett: nett, band: band,
+      zona: band ? band.zona : "", cb: cb, bonus: bonus,
+      akhir: nett - cb - bonus, totalCb: q * cb, totalBonus: q * bonus,
+      benefit: q * cb + q * bonus
+    };
+  }
+
+  function hitungLmMix() {
+    var q1500 = sim.q1, q330 = sim.q2, mix = q1500 + q330 + sim.qLain;
+    var n1500 = nettLm(mix, "1500", sim.channel, sim.pl);
+    var n330 = nettLm(mix, "330", sim.channel, sim.pl);
+    var perWk = (q1500 + q330) / NWEEK;
+    var band = bandPada(SIM.lm.ikatMix, perWk);
+    var cb1500 = band ? band.cb : 0, cb330 = band ? band.cb330 : 0;
+    var b1500 = bonusTw(band, sim.tw, "tw90", "tw100");
+    // Bonus 330 berlaku sejak pencapaian 90%, jadi sama untuk dua status.
+    var b330 = band && sim.tw !== "BELUM" ? band.tw330 || 0 : 0;
+    return {
+      mix: mix, perWk: perWk, nett1500: n1500, nett330: n330, band: band,
+      zona: band ? band.zona : "", cb1500: cb1500, cb330: cb330,
+      bonus1500: b1500, bonus330: b330,
+      akhir1500: n1500 - cb1500 - b1500, akhir330: n330 - cb330 - b330,
+      totalCb: q1500 * cb1500 + q330 * cb330,
+      totalBonus: q1500 * b1500 + q330 * b330,
+      benefit: q1500 * (cb1500 + b1500) + q330 * (cb330 + b330)
+    };
+  }
+
+  /* ── Nilai awal: diambil dari outlet produk itu sendiri ─────────────── */
+  function siapkanSim(p) {
+    if (sim.siap === p.id) return;
+    var jenis = jenisSim(p);
+    var rows = ROWS.filter(function (r) { return r.produkId === p.id; });
+    var daftar = channelSim(jenis, p);
+
+    var hitung = {};
+    rows.forEach(function (r) {
+      var c = channelDari(r.tipe, daftar);
+      hitung[c] = (hitung[c] || 0) + 1;
+    });
+    sim.channel = daftar.sort(function (a, b) { return (hitung[b] || 0) - (hitung[a] || 0); })[0] || "";
+
+    var tgt = rows.map(function (r) { return r.tgt; })
+      .filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
+    var tengah = Math.round(tgt.length ? tgt[Math.floor(tgt.length / 2)] : 100);
+
+    var share = rows.map(function (r) { return r.share; })
+      .filter(function (v) { return v !== null && v !== undefined; });
+    sim.share = share.length
+      ? share.reduce(function (a, b) { return a + b; }, 0) / share.length
+      : 1;
+
+    if (jenis === "lmmix") {
+      sim.q1 = Math.round(tengah * sim.share);
+      sim.q2 = tengah - sim.q1;
+    } else {
+      sim.q1 = tengah;
+      sim.q2 = jenis === "tph" ? Math.round(tengah * 0.3) : 0;
+    }
+    sim.qLain = 0;
+    sim.vol = tengah;
+    sim.tgt = tengah;
+    sim.outlet = "";
+    sim.produk = p.id;
+    sim.siap = p.id;
+  }
+
+  /* ── Potongan HTML yang dipakai berulang ───────────────────────────── */
+  function fieldNum(id, label, nilai, langkah) {
+    return '<div class="field"><label for="' + id + '">' + esc(label) + "</label>" +
+      '<input id="' + id + '" type="number" inputmode="numeric" min="0" step="' +
+      (langkah || 1) + '" value="' + nilai + '"></div>';
+  }
+
+  function fieldSel(id, label, pilihan, aktif) {
+    return '<div class="field"><label for="' + id + '">' + esc(label) + "</label><select id=\"" +
+      id + '">' + pilihan.map(function (o) {
+        var nilai = o.v === undefined ? o : o.v;
+        var teks = o.t === undefined ? o : o.t;
+        return '<option value="' + esc(nilai) + '"' + (String(nilai) === String(aktif) ? " selected" : "") +
+          ">" + esc(teks) + "</option>";
+      }).join("") + "</select></div>";
+  }
+
+  function besar(k, v, m) {
+    return '<div class="card besar"><div class="k">' + esc(k) + '</div><div class="v num">' + v +
+      '</div><div class="m">' + esc(m) + "</div></div>";
+  }
+
+  function PL_PILIHAN() {
+    return [{ v: "baru", t: "Baru" }, { v: "lama", t: "Lama" }];
+  }
+
+  var YA_TIDAK = [{ v: "ya", t: "Ya" }, { v: "tidak", t: "Tidak" }];
+
+  /* ── Formulir tiap jenis ───────────────────────────────────────────── */
+  function formSim(p, jenis) {
+    var daftar = channelSim(jenis, p);
+    var f = "";
+    if (daftar.length > 1) f += fieldSel("s-channel", "Channel", daftar, sim.channel);
+
+    if (jenis === "tph") {
+      f += fieldSel("s-pl", "Price list", PL_PILIHAN(), sim.pl);
+      f += fieldNum("s-q1", "Qty TPH 350 (crt/bln)", sim.q1);
+      f += fieldNum("s-q2", "Qty TPH 500 (crt/bln)", sim.q2);
+      f += fieldSel("s-capai", "Capai 100% target", YA_TIDAK, sim.capai ? "ya" : "tidak");
+      f += fieldSel("s-w03", "W03 ≥ 70%", YA_TIDAK, sim.w03 ? "ya" : "tidak");
+      f += fieldSel("s-syarat", "Syarat DOF Rp900", YA_TIDAK, sim.syarat ? "ya" : "tidak");
+    } else if (jenis === "lm600") {
+      f += fieldSel("s-pl", "Price list", PL_PILIHAN(), sim.pl);
+      f += fieldNum("s-q1", "Qty LM 600 (crt/bln)", sim.q1);
+      f += fieldNum("s-qlain", "Qty LM lain (tier DOF)", sim.qLain);
+      f += fieldSel("s-tw", "Status triwulan", ["BELUM", "90-99%", "≥100%"], sim.tw);
+    } else if (jenis === "lmmix") {
+      f += fieldSel("s-pl", "Price list", PL_PILIHAN(), sim.pl);
+      f += fieldNum("s-q1", "Qty LM 1500 (crt/bln)", sim.q1);
+      f += fieldNum("s-q2", "Qty LM 330 (crt/bln)", sim.q2);
+      f += fieldNum("s-qlain", "Qty LM lain (tier DOF)", sim.qLain);
+      f += fieldSel("s-tw", "Status triwulan", ["BELUM", "90-99%", "≥100%"], sim.tw);
+    } else {
+      var h = hargaProduk(p);
+      var satuan = p.satuan || "crt";
+      f += fieldNum("s-harga", "Harga jual / " + satuan + " (Rp)", h.crt || 0, 500);
+      f += fieldNum("s-isi", "Isi / " + satuan + " (opsional)", h.isi || 0);
+      f += fieldNum("s-vol", "Volume (" + satuan + ")", sim.vol);
+      if (p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch) {
+        f += fieldNum("s-tgt", "Target bulan ini", sim.tgt);
+      }
+    }
+    return f;
+  }
+
+  function renderSimulasi() {
+    var p = produkSim();
+    if (!p) {
+      return '<div class="tbl"><div class="empty">Belum ada tabel program untuk disimulasikan.</div></div>';
+    }
+    siapkanSim(p);
+    var jenis = jenisSim(p);
+    var list = produkBerstrata();
+
+    var head = '<div class="field"><label for="s-produk">Produk</label><select id="s-produk">' +
+      list.map(function (x) {
+        return '<option value="' + esc(x.id) + '"' + (x.id === p.id ? " selected" : "") + ">" +
+          esc(x.label) + "</option>";
+      }).join("") + "</select></div>";
+
+    var geser = jenis === "umum"
+      ? '<label class="sim-range"><span>Geser volume</span><input id="s-range" type="range" min="0" max="' +
+        Math.max(Math.round(volMaksUmum(p) * 1.25), sim.vol) + '" step="1" value="' + sim.vol +
+        '" aria-label="Volume"></label>'
+      : "";
+
+    return '<div class="sim">' +
+      (sim.outlet ? '<div class="sim-from">Prasetel dari <b>' + esc(sim.outlet) + "</b></div>" : "") +
+      '<div class="sim-form">' + head + formSim(p, jenis) + "</div>" +
+      geser +
+      '<div id="sim-out"></div>' +
+      "</div>";
+  }
+
+  function volMaksUmum(p) {
+    var bands = bandsSim(p, sim.channel);
+    return bands.length ? bands[0].min : 1000;
   }
 
   function bandsSim(p, tipe) {
@@ -574,12 +853,240 @@
     return s[(tipe || "").toUpperCase()] || s[""] || [];
   }
 
-  function produkById(id) {
-    return DATA.products.filter(function (p) { return p.id === id; })[0] || null;
+  /* ── Hasil ─────────────────────────────────────────────────────────── */
+  function drawSim() {
+    var p = produkSim();
+    if (!p || !$("#sim-out")) return;
+    var jenis = jenisSim(p);
+    if (jenis === "tph") $("#sim-out").innerHTML = hasilTph(p);
+    else if (jenis === "lm600") $("#sim-out").innerHTML = hasilLm600(p);
+    else if (jenis === "lmmix") $("#sim-out").innerHTML = hasilLmMix(p);
+    else $("#sim-out").innerHTML = hasilUmum(p);
   }
 
-  /* Band tersusun dari ambang terbesar ke terkecil, jadi yang pertama cocok
-     adalah zona yang berlaku. */
+  function catatanSim(jenis) {
+    var isi = jenis === "tph" ? (SIM.tph.catatan || []) : (SIM.lm.catatan || []);
+    return isi.length
+      ? '<p class="note">' + isi.map(esc).join("<br>") + "</p>"
+      : "";
+  }
+
+  function hasilTph(p) {
+    var h = hitungTph();
+    var kartu =
+      besar("Nett 350 akhir", rp(h.akhir350), "setelah DOF, cashback, bonus") +
+      besar("Nett 500 akhir", rp(h.akhir500), "setelah DOF, cashback, bonus") +
+      besar("Total benefit", rp(h.benefit), "DOF + cashback + bonus");
+
+    var rinci =
+      hist2("Total mix (350 + 500)", fmt(h.mix) + " crt") +
+      hist2("Price list 350 / 500", rp(h.pl350) + " / " + rp(h.pl500)) +
+      hist2("DOF per crt", rp(h.dof)) +
+      hist2("Nett setelah DOF", rp(h.nett350) + " / " + rp(h.nett500)) +
+      hist2("Zona ikat target", h.zona || "belum masuk strata") +
+      hist2("Cashback per crt", rp(h.cb) + (sim.capai ? "" : " (target belum tercapai)")) +
+      hist2("Total cashback", rp(h.totalCb)) +
+      hist2("Bonus TPH 350", h.bonusCrt ? fmt(h.bonusCrt) + " crt · " + rp(h.nilaiBonus) : "tidak dapat") +
+      hist2("Bonus per crt", rp(h.bonusCrtRp));
+
+    var naik = naikBand(SIM.tph.ikat[sim.channel] || [], h.mix);
+    var hint = "";
+    if (naik) {
+      var cbNaik = sim.capai ? naik.cb : 0;
+      var bonusNaik = (sim.capai && sim.w03) ? naik.bonus * h.nett350 : 0;
+      var perCrt = naik.min ? bonusNaik / naik.min : 0;
+      hint = '<div class="sim-hint"><b>Tambah ' + fmt(naik.min - h.mix) +
+        " crt</b> (jadi " + fmt(naik.min) + " mix) → zona " + esc(naik.zona) + ", cashback " +
+        rp(cbNaik) + " /crt" + (naik.bonus ? ", bonus " + fmt(naik.bonus) + " crt TPH 350" : "") +
+        ". Nett 350 jadi " + rp(h.nett350 - cbNaik - perCrt) +
+        ". Tarif zona baru berlaku untuk seluruh volume.</div>";
+    }
+
+    var dofNaik = naikDof(h.mix);
+    if (dofNaik) {
+      hint += '<div class="sim-hint">Tangga DOF berikutnya di ' + fmt(dofNaik.min) +
+        " crt mix (tambah " + fmt(dofNaik.min - h.mix) + "): potongan " + rp(dofNaik.disc) +
+        " /crt" + (dofNaik.syarat ? " — butuh syarat tambahan" : "") + ".</div>";
+    }
+
+    var tangga = '<div class="sec">Tangga DOF TPH</div><div class="tbl">' +
+      '<div class="lad head"><div>Min mix</div><div class="r">Potongan /crt</div>' +
+      '<div class="r">Nett 350</div><div class="r">Nett 500</div><div class="r">Dari mix ini</div></div>' +
+      SIM.tph.dof.map(function (b) {
+        var aktif = b.disc === h.dof;
+        return '<div class="lad' + (aktif ? " on" : "") + '">' +
+          "<div>" + fmt(b.min) + " crt" + (b.syarat ? '<div class="sub2">+ syarat</div>' : "") + "</div>" +
+          '<div class="r num"><span class="mlabel">Potongan </span>' + rp(b.disc) + "</div>" +
+          '<div class="r num"><span class="mlabel">Nett 350 </span>' + rp(h.pl350 - b.disc) + "</div>" +
+          '<div class="r num"><span class="mlabel">Nett 500 </span>' + rp(h.pl500 - b.disc) + "</div>" +
+          '<div class="r num"><span class="mlabel">Selisih </span>' +
+          (b.syarat && !sim.syarat ? "butuh syarat"
+            : b.min > h.mix ? "+" + fmt(b.min - h.mix) + " crt"
+              : aktif ? "dipakai" : "terlampaui") +
+          "</div></div>";
+      }).join("") + "</div>";
+
+    tangga += '<div class="sec">Ikat target TPH · ' + esc(sim.channel) + "</div><div class=\"tbl\">" +
+      '<div class="lad head"><div>Zona</div><div class="r">Min mix /bln</div>' +
+      '<div class="r">Cashback /crt</div><div class="r">Bonus 350</div><div class="r">Nett 350 akhir</div></div>' +
+      (SIM.tph.ikat[sim.channel] || []).slice().reverse().map(function (b) {
+        var aktif = h.band && b.zona === h.band.zona;
+        var cb = sim.capai ? b.cb : 0;
+        var bonusRp = (sim.capai && sim.w03 && b.min) ? b.bonus * h.nett350 / b.min : 0;
+        return '<div class="lad' + (aktif ? " on" : "") + '">' +
+          '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona) + "</span></div>" +
+          '<div class="r num"><span class="mlabel">Min mix </span>' + fmt(b.min) + " crt</div>" +
+          '<div class="r num"><span class="mlabel">Cashback </span>' + rp(b.cb) + "</div>" +
+          '<div class="r num"><span class="mlabel">Bonus </span>' + fmt(b.bonus) + " crt</div>" +
+          '<div class="r num"><span class="mlabel">Nett 350 </span>' + rp(h.nett350 - cb - bonusRp) + "</div>" +
+          "</div>";
+      }).join("") + "</div>";
+
+    return '<section class="cards sim-cards">' + kartu + "</section>" + hint +
+      '<div class="sec">Rincian</div>' + rinci + tangga + catatanSim("tph");
+  }
+
+  function hasilLm600(p) {
+    var h = hitungLm600();
+    var kartu =
+      besar("Nett 600 akhir", rp(h.akhir), "setelah DOF, cashback, bonus TW") +
+      besar("Total cashback", rp(h.totalCb), fmt(sim.q1) + " crt x " + rp(h.cb)) +
+      besar("Bonus triwulan", rp(h.totalBonus), sim.tw === "BELUM" ? "belum memenuhi" : "status " + sim.tw);
+
+    var rinci =
+      hist2("Total mix DOF", fmt(h.mix) + " crt") +
+      hist2("Nett setelah DOF", rp(h.nett)) +
+      hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + NWEEK + " minggu)") +
+      hist2("Zona ikat target", h.zona || "belum masuk strata") +
+      hist2("Cashback per crt", rp(h.cb)) +
+      hist2("Bonus triwulan per crt", rp(h.bonus)) +
+      hist2("Nett akhir", rp(h.akhir));
+
+    return '<section class="cards sim-cards">' + kartu + "</section>" +
+      hintLm(h, SIM.lm.ikat600, sim.q1, h.nett, "600") +
+      '<div class="sec">Rincian</div>' + rinci +
+      tanggaNettLm(h.mix, ["600"]) +
+      tanggaIkatLm(SIM.lm.ikat600, h, [{ sku: "600", nett: h.nett, cb: "cb" }]) +
+      catatanSim("lm");
+  }
+
+  function hasilLmMix(p) {
+    var h = hitungLmMix();
+    var kartu =
+      besar("Nett 1500 akhir", rp(h.akhir1500), "setelah DOF, cashback, bonus TW") +
+      besar("Nett 330 akhir", rp(h.akhir330), "setelah DOF, cashback, bonus TW") +
+      besar("Total cashback", rp(h.totalCb), "bonus TW " + rp(h.totalBonus));
+
+    var rinci =
+      hist2("Total mix DOF", fmt(h.mix) + " crt") +
+      hist2("Nett setelah DOF", rp(h.nett1500) + " / " + rp(h.nett330)) +
+      hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + NWEEK + " minggu)") +
+      hist2("Zona ikat target", h.zona || "belum masuk strata") +
+      hist2("Cashback per crt", rp(h.cb1500) + " / " + rp(h.cb330)) +
+      hist2("Bonus triwulan per crt", rp(h.bonus1500) + " / " + rp(h.bonus330)) +
+      hist2("Nett akhir 1500 / 330", rp(h.akhir1500) + " / " + rp(h.akhir330));
+
+    return '<section class="cards sim-cards">' + kartu + "</section>" +
+      hintLm(h, SIM.lm.ikatMix, sim.q1 + sim.q2, h.nett1500, "1500") +
+      '<div class="sec">Rincian</div>' + rinci +
+      tanggaNettLm(h.mix, ["1500", "330"]) +
+      tanggaIkatLm(SIM.lm.ikatMix, h, [{ sku: "1500", nett: h.nett1500, cb: "cb" },
+        { sku: "330", nett: h.nett330, cb: "cb330" }]) +
+      catatanSim("lm");
+  }
+
+  /* Band berikutnya di atas nilai sekarang. */
+  function naikBand(tabel, nilai) {
+    for (var i = tabel.length - 1; i >= 0; i--) {
+      if (tabel[i].min > nilai) return tabel[i];
+    }
+    return null;
+  }
+
+  function naikDof(mix) {
+    var hasil = null;
+    SIM.tph.dof.forEach(function (b) {
+      if (b.min > mix && (!hasil || b.min < hasil.min)) hasil = b;
+    });
+    return hasil;
+  }
+
+  function hintLm(h, tabel, qty, nett, sku) {
+    var naik = naikBand(tabel, h.perWk);
+    var out = "";
+    if (naik) {
+      var tambah = Math.ceil(naik.min * NWEEK - qty);
+      var bonus = bonusTw(naik, sim.tw, "tw90", "tw100");
+      out += '<div class="sim-hint"><b>Tambah ' + fmt(tambah) + " crt</b> (jadi " +
+        fmt(qty + tambah) + " crt/bulan, " + fmt(naik.min) + " /minggu) → zona " + esc(naik.zona) +
+        ", cashback " + rp(naik.cb) + " /crt. Nett " + esc(sku) + " jadi " +
+        rp(nett - naik.cb - bonus) + ". Tarif zona baru berlaku untuk seluruh volume.</div>";
+    }
+    var tierNaik = null;
+    SIM.lm.nett.forEach(function (b) {
+      if (b.min > h.mix && (!tierNaik || b.min < tierNaik.min)) tierNaik = b;
+    });
+    if (tierNaik) {
+      var hargaNaik = nettLm(tierNaik.min, sku, sim.channel, sim.pl);
+      if (hargaNaik && hargaNaik < nett) {
+        out += '<div class="sim-hint">Tier DOF berikutnya di ' + fmt(tierNaik.min) +
+          " crt mix (tambah " + fmt(tierNaik.min - h.mix) + "): nett " + esc(sku) + " turun ke " +
+          rp(hargaNaik) + ".</div>";
+      }
+    }
+    return out;
+  }
+
+  function tanggaNettLm(mix, skus) {
+    var head = '<div class="lad head"><div>Min mix</div>' +
+      skus.map(function (s) { return '<div class="r">Nett ' + esc(s) + "</div>"; }).join("") +
+      '<div class="r">Dari mix ini</div></div>';
+    var aktifMin = -1;
+    SIM.lm.nett.forEach(function (b) { if (mix >= b.min && b.min > aktifMin) aktifMin = b.min; });
+    var body = SIM.lm.nett.slice().reverse().map(function (b) {
+      var aktif = b.min === aktifMin;
+      return '<div class="lad' + (aktif ? " on" : "") + '">' +
+        "<div>" + fmt(b.min) + " crt</div>" +
+        skus.map(function (s) {
+          // Harga di tier itu dihitung lewat nettLm, bukan dibaca mentah, supaya
+          // tangga yang tampil sama persis dengan angka yang dipakai hasil.
+          return '<div class="r num"><span class="mlabel">Nett ' + esc(s) + " </span>" +
+            rp(nettLm(b.min, s, sim.channel, sim.pl)) + "</div>";
+        }).join("") +
+        '<div class="r num"><span class="mlabel">Selisih </span>' +
+        (b.min > mix ? "+" + fmt(b.min - mix) + " crt" : aktif ? "dipakai" : "terlampaui") +
+        "</div></div>";
+    }).join("");
+    return '<div class="sec">Tangga nett DOF · ' + esc(sim.channel) + " · PL " +
+      (sim.pl === "lama" ? "lama" : "baru") + "</div><div class=\"tbl\">" + head + body + "</div>";
+  }
+
+  function tanggaIkatLm(tabel, h, skus) {
+    var head = '<div class="lad head"><div>Zona</div><div class="r">Min /minggu</div>' +
+      '<div class="r">Cashback /crt</div>' +
+      skus.map(function (s) { return '<div class="r">Nett ' + esc(s.sku) + " akhir</div>"; }).join("") +
+      "</div>";
+    var body = tabel.slice().reverse().map(function (b) {
+      var aktif = h.band && b.zona === h.band.zona;
+      var bonus = bonusTw(b, sim.tw, "tw90", "tw100");
+      return '<div class="lad' + (aktif ? " on" : "") + '">' +
+        '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona) + "</span></div>" +
+        '<div class="r num"><span class="mlabel">Min </span>' + fmt(b.min) + " crt" +
+        '<div class="sub2">' + fmt(b.min * NWEEK) + " /bulan</div></div>" +
+        '<div class="r num"><span class="mlabel">Cashback </span>' + rp(b.cb) +
+        (skus.length > 1 ? " / " + rp(b.cb330 || 0) : "") + "</div>" +
+        skus.map(function (s) {
+          var cb = b[s.cb] || 0;
+          var bn = s.sku === "330" ? (sim.tw !== "BELUM" ? b.tw330 || 0 : 0) : bonus;
+          return '<div class="r num"><span class="mlabel">Nett ' + esc(s.sku) + " </span>" +
+            rp(s.nett - cb - bn) + "</div>";
+        }).join("") +
+        "</div>";
+    }).join("");
+    return '<div class="sec">Ikat target · zona per minggu</div><div class="tbl">' + head + body + "</div>";
+  }
+
+  /* ── Simulasi sederhana untuk produk tanpa sheet harga ─────────────── */
   function tarifPada(bands, vol, share) {
     for (var i = 0; i < bands.length; i++) {
       if (vol >= bands[i].min) {
@@ -593,108 +1100,10 @@
     return { rate: 0, zona: "", min: 0 };
   }
 
-  function barisProduk(id) {
-    return ROWS.filter(function (r) { return r.produkId === id; });
-  }
-
-  /* Nilai awal yang masuk akal diambil dari outlet produk itu sendiri. */
-  function siapkanSim(p) {
-    if (sim.siap === p.id) return;
-    var rows = barisProduk(p.id);
-    var tipes = tipeSim(p);
-    var hitung = {};
-    rows.forEach(function (r) {
-      var t = (r.tipe || "").toUpperCase();
-      if (tipes.indexOf(t) > -1) hitung[t] = (hitung[t] || 0) + 1;
-    });
-    sim.tipe = tipes.sort(function (a, b) { return (hitung[b] || 0) - (hitung[a] || 0); })[0] || "";
-
-    var share = rows.map(function (r) { return r.share; })
-      .filter(function (v) { return v !== null && v !== undefined; });
-    sim.share = share.length
-      ? share.reduce(function (a, b) { return a + b; }, 0) / share.length
-      : 1;
-
-    var tgt = rows.map(function (r) { return r.tgt; })
-      .filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
-    var bands = bandsSim(p, sim.tipe);
-    sim.vol = Math.round(tgt.length
-      ? tgt[Math.floor(tgt.length / 2)]
-      : (bands.length ? bands[bands.length - 1].min : 100));
-    sim.tgt = sim.vol;
-    sim.outlet = "";
-    sim.produk = p.id;
-    sim.siap = p.id;
-  }
-
-  function renderSimulasi() {
-    var p = produkSim();
-    if (!p) {
-      return '<div class="tbl"><div class="empty">Tabel strata produk ini belum ada di data,' +
-        "<br>jadi simulasi harganya belum bisa dihitung.</div></div>";
-    }
-    siapkanSim(p);
-
-    var list = produkBerstrata();
-    var tipes = tipeSim(p);
-    var h = hargaProduk(p);
-    var satuan = p.satuan || "crt";
-    var bands = bandsSim(p, sim.tipe);
-    var maxVol = Math.max(Math.round((bands.length ? bands[0].min : 100) * 1.25), sim.vol);
-    var syaratAch = p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch;
-    var duaUkuran = (p.ukuran || []).length > 1;
-
-    var f = "";
-    f += '<div class="field"><label for="s-produk">Produk</label><select id="s-produk">' +
-      list.map(function (x) {
-        return '<option value="' + esc(x.id) + '"' + (x.id === p.id ? " selected" : "") + ">" +
-          esc(x.label) + "</option>";
-      }).join("") + "</select></div>";
-
-    if (tipes.length > 1) {
-      f += '<div class="field"><label for="s-tipe">Tipe outlet</label><select id="s-tipe">' +
-        tipes.map(function (t) {
-          return '<option value="' + esc(t) + '"' + (t === sim.tipe ? " selected" : "") + ">" +
-            esc(t) + "</option>";
-        }).join("") + "</select></div>";
-    }
-
-    f += '<div class="field"><label for="s-harga">Harga jual / ' + esc(satuan) + ' (Rp)</label>' +
-      '<input id="s-harga" type="number" inputmode="numeric" min="0" step="1000" placeholder="isi harga" value="' +
-      (h.crt || "") + '"></div>';
-    f += '<div class="field"><label for="s-isi">Isi / ' + esc(satuan) + ' (opsional)</label>' +
-      '<input id="s-isi" type="number" inputmode="numeric" min="0" step="1" placeholder="mis. 24" value="' +
-      (h.isi || "") + '"></div>';
-    f += '<div class="field"><label for="s-vol">Volume (' + esc(satuan) + ')</label>' +
-      '<input id="s-vol" type="number" inputmode="numeric" min="0" step="1" value="' + sim.vol + '"></div>';
-    if (syaratAch) {
-      f += '<div class="field"><label for="s-tgt">Target bulan ini</label>' +
-        '<input id="s-tgt" type="number" inputmode="numeric" min="0" step="1" value="' + sim.tgt + '"></div>';
-    }
-    if (duaUkuran) {
-      f += '<div class="field"><label for="s-share">Porsi ' + esc(p.ukuran[0]) + ' (%)</label>' +
-        '<input id="s-share" type="number" inputmode="numeric" min="0" max="100" step="5" value="' +
-        Math.round(sim.share * 100) + '"></div>';
-    }
-
-    return '<div class="sim">' +
-      (sim.outlet ? '<div class="sim-from">Prasetel dari <b>' + esc(sim.outlet) + "</b></div>" : "") +
-      '<div class="sim-form">' + f + "</div>" +
-      '<label class="sim-range"><span>Geser volume</span>' +
-      '<input id="s-range" type="range" min="0" max="' + maxVol + '" step="1" value="' + sim.vol +
-      '" aria-label="Volume"></label>' +
-      '<div id="sim-out"></div>' +
-      "</div>";
-  }
-
-  /* Hanya bagian hasil yang digambar ulang saat angka diketik, supaya kursor
-     tidak lompat keluar dari kotak isian. */
-  function drawSim() {
-    var p = produkSim();
-    if (!p || !$("#sim-out")) return;
+  function hasilUmum(p) {
     var satuan = p.satuan || "crt";
     var h = hargaProduk(p);
-    var bands = bandsSim(p, sim.tipe);
+    var bands = bandsSim(p, sim.channel);
     var vol = sim.vol;
     var kini = tarifPada(bands, vol, sim.share);
     var syaratAch = p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch;
@@ -704,27 +1113,22 @@
     var nett = h.crt ? h.crt - rate : null;
     var bayar = h.crt ? h.crt * vol - cb : null;
 
-    var catatanTarif = gugurAch
-      ? "tertahan: target belum tercapai"
-      : (kini.zona ? "zona " + kini.zona : "di bawah strata terendah");
-
     var kartu =
-      '<div class="card"><div class="k">Zona</div><div class="v"><span class="pill ' +
-      (gugurAch ? "crit" : kini.zona ? "good" : "crit") + '">' +
+      '<div class="card besar"><div class="k">Zona</div><div class="v"><span class="pill ' +
+      (gugurAch || !kini.zona ? "crit" : "good") + '">' +
       (gugurAch ? "tertahan" : kini.zona || "–") + "</span></div>" +
       '<div class="m">' + fmt(vol) + " " + esc(satuan) + " / bulan</div></div>" +
-      card("Tarif cashback", rp(rate) + " /" + satuan, catatanTarif) +
-      card("Total cashback", rp(cb), vol > 0 ? "untuk " + fmt(vol) + " " + satuan : "belum ada volume") +
-      card("Harga nett /" + satuan, nett === null ? "–" : rp(nett),
+      besar("Harga nett /" + satuan, nett === null ? "–" : rp(nett),
         h.crt ? "dari " + rp(h.crt) + (h.isi ? " · " + rp(nett / h.isi) + " /pcs" : "")
           : "isi harga jual dulu") +
-      card("Diskon efektif", h.crt ? pct1(rate / h.crt) : "–",
-        h.crt ? "potongan dari harga jual" : "butuh harga jual") +
-      card("Total bayar", bayar === null ? "–" : rp(bayar),
-        h.crt ? "setelah cashback" : "butuh harga jual");
+      besar("Total cashback", rp(cb), gugurAch ? "tertahan: target belum tercapai"
+        : kini.zona ? "zona " + kini.zona : "di bawah strata terendah");
 
-    // Band berikutnya di atas volume sekarang: inilah tawaran yang dipakai di
-    // depan toko, karena tarif baru berlaku untuk seluruh volume.
+    var rinci =
+      hist2("Tarif cashback", rp(rate) + " / " + esc(satuan)) +
+      hist2("Diskon efektif", h.crt ? pct1(rate / h.crt) : "–") +
+      hist2("Total bayar", bayar === null ? "–" : rp(bayar));
+
     var naik = null;
     for (var i = bands.length - 1; i >= 0; i--) {
       if (bands[i].min > vol) { naik = bands[i]; break; }
@@ -738,7 +1142,7 @@
         rp(rNaik) + " /" + esc(satuan) + ". Total cashback " + rp(cbNaik) +
         " (naik " + rp(cbNaik - cb) + ")" +
         (h.crt ? ", harga nett " + rp(h.crt - rNaik) + " /" + esc(satuan) : "") +
-        ". Tarif zona baru berlaku untuk seluruh volume, bukan cuma tambahannya.</div>";
+        ". Tarif zona baru berlaku untuk seluruh volume.</div>";
     } else if (bands.length) {
       hint = '<div class="sim-hint">Sudah di zona tertinggi program ini.</div>';
     }
@@ -753,7 +1157,7 @@
       return '<div class="lad' + (aktif ? " on" : "") + '">' +
         '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona || "–") + "</span></div>" +
         '<div class="r num"><span class="mlabel">Minimal </span>' + fmt(b.min) + " " + esc(satuan) +
-        '<div class="sub2">' + fmt(b.min / (WEEKS.length || 4)) + " /minggu</div></div>" +
+        '<div class="sub2">' + fmt(b.min / NWEEK) + " /minggu</div></div>" +
         '<div class="r num"><span class="mlabel">Tarif </span>' + rp(r2) + "</div>" +
         '<div class="r num"><span class="mlabel">Nett </span>' + (h.crt ? rp(h.crt - r2) : "–") + "</div>" +
         '<div class="r num"><span class="mlabel">Selisih </span>' +
@@ -762,39 +1166,73 @@
         "</div>";
     }).join("");
 
-    $("#sim-out").innerHTML =
-      '<section class="cards sim-cards">' + kartu + "</section>" +
-      hint +
+    return '<section class="cards sim-cards">' + kartu + "</section>" + hint +
       (syaratAch
-        ? '<p class="note">Nipis Madu hanya dibayar kalau target bulan itu tercapai, jadi volume di bawah target tidak menghasilkan cashback.</p>'
+        ? '<p class="note">' + esc(p.label) +
+          " hanya dibayar kalau target bulan itu tercapai, jadi volume di bawah target tidak menghasilkan cashback.</p>"
         : "") +
-      '<div class="sec">Strata ' + esc(p.label) +
-      (sim.tipe ? " · " + esc(sim.tipe) : "") + " — " + (WEEKS.length || 4) + " minggu</div>" +
+      '<div class="sec">Rincian</div>' + rinci +
+      '<div class="sec">Strata ' + esc(p.label) + " — " + NWEEK + " minggu</div>" +
       '<div class="tbl">' + ladHead + ladBody + "</div>" +
-      '<p class="note">Harga jual tidak ada di workbook target, jadi angka harga yang dipakai di sini' +
-      " adalah yang diisi sendiri dan tersimpan di peramban ini saja. Tarif cashback, zona, dan" +
-      " ambangnya datang dari tabel strata program di file.</p>";
+      '<p class="note">Produk ini belum punya sheet simulasi harga di workbook, jadi harga jualnya' +
+      " diisi sendiri dan hanya tersimpan di peramban ini. Tarif dan zonanya tetap dari tabel strata di file.</p>";
   }
 
-  /* Tangga strata hasil simulasi, buat dibawa ke toko atau ditempel di grup. */
+  /* ── Ekspor tangga simulasi ────────────────────────────────────────── */
   function exportSim() {
     var p = produkSim();
     if (!p) return;
-    var h = hargaProduk(p);
+    var jenis = jenisSim(p);
+    var baris = [["Produk", p.label], ["Channel", sim.channel || "semua"]];
     var satuan = p.satuan || "crt";
-    var bands = bandsSim(p, sim.tipe);
-    var baris = [["Produk", p.label], ["Tipe outlet", sim.tipe || "semua"],
-      ["Satuan", satuan], ["Jumlah minggu", WEEKS.length || 4],
-      ["Harga jual / " + satuan, h.crt || ""], ["Isi / " + satuan, h.isi || ""],
-      ["Volume disimulasikan", sim.vol], [],
-      ["Zona", "Minimal (" + satuan + ")", "Minimal / minggu", "Tarif /" + satuan,
-        "Harga nett /" + satuan, "Total cashback di minimal", "Selisih dari volume"]];
 
-    bands.slice().reverse().forEach(function (b) {
-      var r = tarifPada(bands, b.min, sim.share).rate;
-      baris.push([b.zona, b.min, Math.round(b.min / (WEEKS.length || 4)), Math.round(r),
-        h.crt ? Math.round(h.crt - r) : "", Math.round(b.min * r), Math.round(b.min - sim.vol)]);
-    });
+    if (jenis === "tph") {
+      var t = hitungTph();
+      baris.push(["Price list", sim.pl], ["Qty 350", sim.q1], ["Qty 500", sim.q2],
+        ["Total mix", t.mix], ["DOF /crt", t.dof], ["Zona", t.zona],
+        ["Cashback /crt", t.cb], ["Bonus 350 (crt)", t.bonusCrt],
+        ["Nett 350 akhir", Math.round(t.akhir350)], ["Nett 500 akhir", Math.round(t.akhir500)],
+        ["Total benefit", Math.round(t.benefit)], [],
+        ["Zona", "Min mix", "Cashback /crt", "Bonus crt", "Nett 350 akhir"]);
+      (SIM.tph.ikat[sim.channel] || []).slice().reverse().forEach(function (b) {
+        var bonusRp = (sim.capai && sim.w03 && b.min) ? b.bonus * t.nett350 / b.min : 0;
+        baris.push([b.zona, b.min, b.cb, b.bonus,
+          Math.round(t.nett350 - (sim.capai ? b.cb : 0) - bonusRp)]);
+      });
+    } else if (jenis === "lm600" || jenis === "lmmix") {
+      var m = jenis === "lm600" ? hitungLm600() : hitungLmMix();
+      baris.push(["Price list", sim.pl], ["Status triwulan", sim.tw],
+        ["Qty utama", sim.q1], ["Qty kedua", sim.q2], ["Qty LM lain", sim.qLain],
+        ["Total mix DOF", m.mix], ["Rata-rata /minggu", Math.round(m.perWk)],
+        ["Zona", m.zona]);
+      if (jenis === "lm600") {
+        baris.push(["Nett DOF", m.nett], ["Cashback /crt", m.cb], ["Bonus TW /crt", m.bonus],
+          ["Nett akhir", Math.round(m.akhir)]);
+      } else {
+        baris.push(["Nett DOF 1500 / 330", m.nett1500 + " / " + m.nett330],
+          ["Cashback /crt 1500 / 330", m.cb1500 + " / " + m.cb330],
+          ["Bonus TW /crt 1500 / 330", m.bonus1500 + " / " + m.bonus330],
+          ["Nett akhir 1500", Math.round(m.akhir1500)],
+          ["Nett akhir 330", Math.round(m.akhir330)]);
+      }
+      baris.push(["Total cashback", Math.round(m.totalCb)], ["Bonus triwulan", Math.round(m.totalBonus)],
+        [], ["Zona", "Min /minggu", "Min /bulan", "Cashback /crt"]);
+      (jenis === "lm600" ? SIM.lm.ikat600 : SIM.lm.ikatMix).slice().reverse().forEach(function (b) {
+        baris.push([b.zona, b.min, b.min * NWEEK, b.cb]);
+      });
+    } else {
+      var h = hargaProduk(p);
+      var bands = bandsSim(p, sim.channel);
+      baris.push(["Satuan", satuan], ["Jumlah minggu", NWEEK],
+        ["Harga jual / " + satuan, h.crt || ""], ["Volume disimulasikan", sim.vol], [],
+        ["Zona", "Minimal (" + satuan + ")", "Minimal / minggu", "Tarif /" + satuan,
+          "Harga nett /" + satuan, "Total cashback di minimal"]);
+      bands.slice().reverse().forEach(function (b) {
+        var r = tarifPada(bands, b.min, sim.share).rate;
+        baris.push([b.zona, b.min, Math.round(b.min / NWEEK), Math.round(r),
+          h.crt ? Math.round(h.crt - r) : "", Math.round(b.min * r)]);
+      });
+    }
 
     var teks = baris.map(function (cols) {
       return cols.map(function (c) {
@@ -807,70 +1245,79 @@
       "﻿" + teks);
   }
 
+  /* ── Pemasangan isian ──────────────────────────────────────────────── */
   function bindSim() {
     var p = produkSim();
     if (!p) return;
+    var jenis = jenisSim(p);
     drawSim();
 
-    var ps = $("#s-produk");
-    if (ps) {
-      ps.addEventListener("change", function () {
-        sim.produk = ps.value;
-        sim.siap = "";
-        render();
-      });
-    }
-    var ts = $("#s-tipe");
-    if (ts) {
-      ts.addEventListener("change", function () { sim.tipe = ts.value; drawSim(); });
+    function pasang(id, fn, peristiwa) {
+      var el = $("#" + id);
+      if (el) el.addEventListener(peristiwa || "input", function () { fn(el); });
     }
 
-    var vol = $("#s-vol"), rng = $("#s-range");
-    function setVol(v, dari) {
-      sim.vol = Math.max(Math.round(Number(v) || 0), 0);
-      if (dari !== "vol") vol.value = sim.vol;
-      if (dari !== "range" && sim.vol <= Number(rng.max)) rng.value = sim.vol;
-      drawSim();
-    }
-    vol.addEventListener("input", function () { setVol(vol.value, "vol"); });
-    rng.addEventListener("input", function () { setVol(rng.value, "range"); });
+    pasang("s-produk", function (el) {
+      sim.produk = el.value;
+      sim.siap = "";
+      sim.outlet = "";
+      render();
+    }, "change");
 
-    $("#s-harga").addEventListener("input", function (e) {
-      setHarga(p, "crt", e.target.value);
-      drawSim();
-    });
-    $("#s-isi").addEventListener("input", function (e) {
-      setHarga(p, "isi", e.target.value);
-      drawSim();
-    });
-    var tg = $("#s-tgt");
-    if (tg) {
-      tg.addEventListener("input", function () {
-        sim.tgt = Math.max(Math.round(Number(tg.value) || 0), 0);
+    pasang("s-channel", function (el) { sim.channel = el.value; drawSim(); }, "change");
+    pasang("s-pl", function (el) { sim.pl = el.value; drawSim(); }, "change");
+    pasang("s-tw", function (el) { sim.tw = el.value; drawSim(); }, "change");
+    pasang("s-capai", function (el) { sim.capai = el.value === "ya"; drawSim(); }, "change");
+    pasang("s-w03", function (el) { sim.w03 = el.value === "ya"; drawSim(); }, "change");
+    pasang("s-syarat", function (el) { sim.syarat = el.value === "ya"; drawSim(); }, "change");
+    pasang("s-q2", function (el) { sim.q2 = angka(el.value); drawSim(); });
+    pasang("s-qlain", function (el) { sim.qLain = angka(el.value); drawSim(); });
+    pasang("s-isi", function (el) { setHarga(p, "isi", el.value); drawSim(); });
+    pasang("s-harga", function (el) { setHarga(p, "crt", el.value); drawSim(); });
+    pasang("s-tgt", function (el) { sim.tgt = angka(el.value); drawSim(); });
+
+    if (jenis === "umum") {
+      var vol = $("#s-vol"), rng = $("#s-range");
+      var setVol = function (v, dari) {
+        sim.vol = angka(v);
+        if (dari !== "vol") vol.value = sim.vol;
+        if (dari !== "range" && sim.vol <= Number(rng.max)) rng.value = sim.vol;
         drawSim();
-      });
-    }
-    var sh = $("#s-share");
-    if (sh) {
-      sh.addEventListener("input", function () {
-        sim.share = Math.min(Math.max(Number(sh.value) || 0, 0), 100) / 100;
-        drawSim();
-      });
+      };
+      vol.addEventListener("input", function () { setVol(vol.value, "vol"); });
+      rng.addEventListener("input", function () { setVol(rng.value, "range"); });
+    } else {
+      pasang("s-q1", function (el) { sim.q1 = angka(el.value); drawSim(); });
     }
   }
 
-  /* Buka simulasi dengan angka satu outlet: tipe, komposisi, dan targetnya. */
+  function angka(v) {
+    return Math.max(Math.round(Number(v) || 0), 0);
+  }
+
+  /* Buka simulasi dengan angka satu outlet. */
   function simDariOutlet(uid) {
     var r = ROWS.filter(function (x) { return x.uid === uid; })[0];
     if (!r) return;
     var p = produkById(r.produkId);
     if (!p) return;
+    var jenis = jenisSim(p);
     sim.produk = p.id;
     sim.siap = p.id;
-    var tipes = tipeSim(p);
-    sim.tipe = tipes.indexOf((r.tipe || "").toUpperCase()) > -1 ? (r.tipe || "").toUpperCase() : (tipes[0] || "");
+    sim.channel = channelDari(r.tipe, channelSim(jenis, p));
     sim.share = r.share === null || r.share === undefined ? 1 : r.share;
-    sim.vol = Math.round(r.tgt || r.total || 0);
+    var tgt = Math.round(r.tgt || r.total || 0);
+    if (jenis === "lmmix") {
+      sim.q1 = Math.round(tgt * sim.share);
+      sim.q2 = tgt - sim.q1;
+    } else if (jenis === "tph") {
+      sim.q1 = tgt;
+      sim.q2 = 0;
+    } else {
+      sim.q1 = tgt;
+    }
+    sim.qLain = 0;
+    sim.vol = tgt;
     sim.tgt = Math.round(r.tgt || 0);
     sim.outlet = r.nama + " — target " + fmt(r.tgt) + " " + (r.satuan || "crt") +
       ", realisasi " + fmt(r.total);

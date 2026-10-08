@@ -460,6 +460,9 @@ button, input, select { font: inherit; color: inherit; }
 .sim-cards { margin: 14px 0 0; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); }
 .sim-cards .card { background: var(--surface-2); }
 .sim-cards .card .v { font-size: 19px; }
+/* Angka yang paling dicari: harga nett akhir. */
+.sim-cards .card.besar { background: var(--accent-soft); border: 1px solid var(--accent); }
+.sim-cards .card.besar .v { color: var(--accent); font-size: 21px; }
 
 .sim-hint {
   margin: 12px 0 0;
@@ -473,10 +476,13 @@ button, input, select { font: inherit; color: inherit; }
 }
 .sim-hint b { font-variant-numeric: tabular-nums; }
 
-/* Tangga strata: zona, ambang, tarif, harga nett. */
+/* Tangga program: kolom pertama tetap (zona / ambang), sisanya dibagi rata —
+   jumlah kolomnya berbeda-beda antar tabel, jadi dibiarkan mengalir sendiri. */
 .lad {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 96px;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   padding: 9px 13px;
@@ -668,6 +674,7 @@ button.maplink { background: var(--surface); font: inherit; font-size: 13px; fon
 
   .lad.head { display: none; }
   .lad {
+    grid-auto-flow: row;
     grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr);
     gap: 4px 10px;
   }

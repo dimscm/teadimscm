@@ -25,6 +25,9 @@ from pathlib import Path
 
 import openpyxl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import simulasi  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 
 PERIODE = "Oktober 2026"
@@ -391,6 +394,8 @@ def main():
 
     products = []
     for ws in wb.worksheets:
+        if simulasi.sheet_simulasi(ws.title):
+            continue  # dibaca terpisah di bawah
         label, satuan = label_produk(ws.title)
         if label is None:
             print(f"  ! sheet '{ws.title}' dilewati (produknya tidak dikenali)")
@@ -420,6 +425,16 @@ def main():
         "tanggal": date.today().isoformat(),
         "products": products,
     }
+
+    # Sheet "SIMULASI NETT ..." membawa price list, tangga DOF, dan bonus yang
+    # tidak ada di sheet target; itulah dasar simulasi harga di web.
+    sim = simulasi.baca(wb, len(WEEK_LABELS))
+    if sim:
+        data["simulasi"] = sim
+        bagian = [k for k in ("tph", "lm") if sim.get(k)]
+        print(f"  simulasi harga: {', '.join(bagian)}")
+    else:
+        print("  ! sheet simulasi harga tidak ada di workbook ini")
     out = ROOT / "data.js"
     out.write_text(
         "// Dibuat otomatis oleh tools/build_ikat.py — jangan diedit manual.\n"

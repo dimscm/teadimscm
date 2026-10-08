@@ -5,7 +5,8 @@ produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **Oktober 2026 (W40–W43)** — 4 produk (LM 600,
-LM 1500+330, TPH, Nipis Madu) / 110 outlet, dari `target_oct_toko.xlsx`.
+LM 1500+330, TPH, Nipis Madu) / 110 outlet, dari
+`target_oct_toko_dan_simulasi.xlsx`.
 
 > **Dua bentuk workbook, dua pembaca.** Sampai September file target berbentuk
 > "POTENSI ..." dan dibaca `tools/build_data.py`. Mulai Oktober bentuknya
@@ -90,40 +91,53 @@ Untuk workbook bentuk "POTENSI" yang lama, tabel strata ada di
 ## Simulasi harga
 
 Tombol **Simulasi Harga** di baris tampilan (sebelah Per Salesman / Per Rayon)
-menjawab pertanyaan toko: *"kalau saya ambil segini, harganya jadi berapa?"*
+menjawab pertanyaan toko: *"kalau saya ambil segini, nett-nya jadi berapa?"*
 
-Isi volume — lewat kotak isian atau penggeser — dan halaman menampilkan zona,
-tarif cashback per karton, total cashback, harga nett, diskon efektif, dan
-total bayar. Di bawahnya seluruh tangga strata program itu ditampilkan, dengan
-baris zona yang sedang berlaku disorot, plus satu kalimat tawaran:
+Dasarnya dua sheet di workbook target, **SIMULASI NETT TPH OKT** dan
+**SIMULASI NETT LM OKT**, yang disusun dari surat program. Dari situ web
+mengambil price list, tangga DOF, tabel ikat target, dan bonusnya; rumusnya
+persis yang ditulis di sheet itu:
 
-> Tambah 1.400 crt lagi (jadi 2.600) → zona C, tarif Rp 800 /crt. Total
-> cashback Rp 2.080.000 (naik Rp 1.240.000).
+| Program | Rumus nett akhir |
+|---|---|
+| TPH | PL − DOF − cashback/crt − bonus TPH350 /crt |
+| LM 600 & LM 1500+330 | nett DOF − cashback/crt − bonus triwulan /crt |
+
+Zona TPH dihitung dari total mix 350+500 sebulan; zona LM dari rata-rata
+mingguan (qty bulan ÷ jumlah minggu). Isiannya mengikuti sheet: channel,
+price list lama/baru, qty tiap SKU, qty LM lain untuk tier DOF, status
+triwulan, serta syarat-syarat TPH (capai 100% target, W03 ≥ 70%, syarat DOF
+Rp900).
+
+Hasilnya: nett akhir tiap ukuran sebagai angka besar, rincian lengkap, dua
+tangga program (DOF dan ikat target) dengan baris yang sedang berlaku
+disorot, dan kalimat tawaran:
+
+> Tambah 6.000 crt (jadi 10.000 mix) → zona C, cashback Rp 1.100 /crt, bonus
+> 30 crt TPH 350. Nett 350 jadi Rp 59.518.
 
 Kalimat itu yang paling berguna di depan toko, karena **tarif zona baru
-berlaku untuk seluruh volume, bukan cuma tambahannya** — naik satu zona
-memurahkan semua karton sekaligus.
+berlaku untuk seluruh volume, bukan cuma tambahannya**.
 
 Yang perlu diperhatikan:
 
-- **Harga jual diisi sendiri.** Workbook target tidak memuat harga sama
-  sekali, jadi tidak ada harga yang bisa diambil dari data. Harga (dan isi per
-  karton, kalau mau lihat harga per pcs) diketik di halaman ini dan diingat
-  per produk di peramban masing-masing — tidak ikut terkirim ke mana pun dan
-  tidak ikut di berkas yang dibagikan. Kalau daftar harga resminya dikirim,
-  angkanya bisa dipasang sebagai bawaan supaya sales tidak perlu mengetik.
-- **Tarif, zona, dan ambangnya datang dari file**, yaitu tabel strata tiap
-  sheet. Tabel itu sekarang ikut diekspor ke `data.js` supaya browser bisa
-  menghitung zona pada volume berapa pun, bukan cuma pada target. Ambangnya
-  dikonversi jadi karton sebulan (min/minggu × jumlah minggu).
-- **TPH** punya tangga berbeda untuk SO dan GROMIN, jadi tipe outletnya bisa
-  dipilih. **LM 1500+330** tarifnya campuran dua ukuran, jadi ada isian porsi
-  1500ML. **Nipis Madu** hanya dibayar kalau target tercapai — di bawah target
-  simulasinya menunjukkan cashback tertahan.
+- **Angkanya diuji terhadap sheetnya sendiri.** Ketujuh baris contoh di dua
+  sheet simulasi dipakai sebagai kunci jawaban; isian yang sama harus
+  menghasilkan angka yang sama sampai rupiah terakhir.
+- **Nipis Madu belum punya sheet simulasi**, jadi produk itu memakai simulasi
+  sederhana: tangga strata cashback dengan harga jual diketik sendiri dan
+  disimpan di peramban masing-masing. Kalau sheet simulasinya dibuat, produk
+  itu ikut model yang sama dengan yang lain.
+- **Tangga nett DOF LM berisi harga, bukan potongan**, dan tier yang lebih
+  tinggi tidak boleh lebih mahal — dipakai harga termurah yang berlaku sampai
+  qty itu.
+- **Price list lama** dihitung dari price list baru dikurangi kenaikan yang
+  tercantum di sheet (600 Rp1.000; 1500 & 330 Rp1.500).
 - **Klik satu outlet → Simulasi harga** membuka simulasi dengan angka outlet
-  itu: tipe, komposisi ukuran, dan targetnya sebagai volume awal.
-- **Unduh CSV** saat tampilan simulasi aktif mengekspor tangga stratanya,
-  lengkap dengan harga nett tiap zona.
+  itu: channel dari tipe outletnya, target sebagai qty, dan untuk LM 1500+330
+  komposisi 1500/330 outlet itu sendiri.
+- **Unduh CSV** saat tampilan simulasi aktif mengekspor hasil dan tangga
+  programnya.
 
 ## Yang bisa dilakukan
 
@@ -140,8 +154,8 @@ Yang perlu diperhatikan:
   ikut berubah mengikuti filter yang aktif.
 - **Rekap Per Salesman / Per Rayon** untuk melihat pencapaian tiap orang atau
   tiap rayon.
-- **Simulasi Harga** untuk menghitung harga nett dan cashback pada volume
-  berapa pun (lihat bagian di atas).
+- **Simulasi Harga** untuk menghitung harga nett akhir setelah DOF, cashback,
+  dan bonus pada volume berapa pun (lihat bagian di atas).
 - **Klik satu outlet** untuk melihat sisa cashback dan target bulan ini di
   paling atas, lalu tautan **Buka di Google Maps** (kalau koordinatnya ada),
   realisasi per minggu, target MAX dan achievement-nya, tipe outlet,
@@ -183,7 +197,7 @@ beres.
 ## Memperbarui data
 
 ```bash
-python3 web/tools/build_ikat.py target_oct_toko.xlsx   # workbook bentuk "IKAT"
+python3 web/tools/build_ikat.py target_oct_toko_dan_simulasi.xlsx   # bentuk "IKAT"
 python3 web/tools/build_single.py                      # tulis ulang dist/ + docs/
 ```
 
@@ -211,6 +225,7 @@ hilang saat daftar outlet berubah tiap bulan.
 | `app.js` | filter, pencarian, rekap, panel detail, ekspor CSV |
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
 | `tools/build_ikat.py` | workbook "IKAT" (Oktober dst) → `data.js` |
+| `tools/simulasi.py` | sheet "SIMULASI NETT ..." → price list, DOF, bonus |
 | `tools/build_data.py` | workbook "POTENSI" (sampai September) → `data.js` |
 | `koordinat.json` | koordinat outlet, lepas dari data bulanan |
 | `tools/refresh_monitoring.py` | segarkan `data.js` dari form monitoring mingguan |
