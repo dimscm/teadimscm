@@ -498,6 +498,8 @@ button, input, select { font: inherit; color: inherit; }
 }
 .lad .r { text-align: right; }
 .lad.on { background: var(--accent-soft); }
+/* Baris jumlah triwulan. */
+.lad.tot { border-top: 2px solid var(--line-strong); font-weight: 700; }
 .lad .pill { min-width: 40px; }
 
 /* ── Panel detail ─────────────────────────────────────────────────────── */

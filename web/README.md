@@ -103,6 +103,14 @@ persis yang ditulis di sheet itu:
 | TPH | PL − DOF − cashback/crt − bonus TPH350 /crt |
 | LM 600 & LM 1500+330 | nett DOF − cashback/crt − bonus triwulan /crt |
 
+> **Tiga angka yang waktunya berbeda, jangan dicampur.** DOF (*discount on
+> faktur*) memotong harga di faktur, jadi **harga faktur = PL − DOF** adalah
+> yang benar-benar dibayar toko saat beli. **Cashback bulanan tidak memotong
+> faktur** — cairnya bulan berikutnya. **Bonus triwulan** cair lagi setelah
+> triwulan ditutup. Karena itu web menampilkan harga faktur dan nett akhir
+> sebagai dua angka terpisah, dan tiap baris cashback diberi keterangan kapan
+> cairnya.
+
 Zona TPH dihitung dari total mix 350+500 sebulan; zona LM dari rata-rata
 mingguan (qty bulan ÷ jumlah minggu). Isiannya mengikuti sheet: channel,
 **jumlah minggu**, price list lama/baru, qty tiap SKU, qty LM lain untuk tier
@@ -140,7 +148,8 @@ Yang perlu diperhatikan:
 
 - **Angkanya diuji terhadap sheetnya sendiri.** Ketujuh baris contoh di dua
   sheet simulasi dipakai sebagai kunci jawaban; isian yang sama harus
-  menghasilkan angka yang sama sampai rupiah terakhir.
+  menghasilkan angka yang sama sampai rupiah terakhir. Ujinya bisa diulang
+  kapan saja: `python3 web/tools/uji_simulasi.py`.
 - **Nipis Madu belum punya sheet simulasi**, jadi produk itu memakai simulasi
   sederhana: tangga strata cashback dengan harga jual diketik sendiri dan
   disimpan di peramban masing-masing. Kalau sheet simulasinya dibuat, produk
@@ -154,7 +163,25 @@ Yang perlu diperhatikan:
   itu: channel dari tipe outletnya, target sebagai qty, dan untuk LM 1500+330
   komposisi 1500/330 outlet itu sendiri.
 - **Unduh CSV** saat tampilan simulasi aktif mengekspor hasil dan tangga
-  programnya.
+  programnya (di mode triwulan: tabel tiga bulannya).
+
+### Mode triwulan
+
+Pilihan **Periode: Triwulan (3 bulan)** menjumlahkan satu triwulan penuh.
+Di mode ini qty diisi **per minggu**, karena memang begitu programnya bekerja:
+qty sebulan = qty per minggu × jumlah minggu bulan itu. Jumlah minggu tiap
+bulan bisa diatur sendiri (bawaan 4 · 4 · 5, pola yang sama dengan Q3 lalu).
+
+Hasilnya tabel tiga bulan — qty, zona, harga faktur, cashback beserta **bulan
+cairnya**, bonus, dan nett akhir — plus baris jumlah triwulan.
+
+Karena zona ditentukan rata-rata mingguan dan qty per minggunya sama tiap
+bulan, **zonanya sama di ketiga bulan**; yang berbeda hanya jumlah kartonnya —
+bulan 5 minggu otomatis 25% lebih banyak. Tier DOF tetap dihitung dari qty
+bulan itu sendiri, jadi harga fakturnya masih bisa berbeda antar bulan.
+
+Angka yang sudah diketik ikut dikonversi saat ganti mode (dibagi atau dikali
+jumlah minggu), jadi tidak perlu mengetik ulang.
 
 ## Yang bisa dilakukan
 
@@ -243,6 +270,7 @@ hilang saat daftar outlet berubah tiap bulan.
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
 | `tools/build_ikat.py` | workbook "IKAT" (Oktober dst) → `data.js` |
 | `tools/simulasi.py` | sheet "SIMULASI NETT ..." → price list, DOF, bonus |
+| `tools/uji_simulasi.py` | uji simulasi web terhadap contoh di sheet simulasi |
 | `tools/build_data.py` | workbook "POTENSI" (sampai September) → `data.js` |
 | `koordinat.json` | koordinat outlet, lepas dari data bulanan |
 | `tools/refresh_monitoring.py` | segarkan `data.js` dari form monitoring mingguan |

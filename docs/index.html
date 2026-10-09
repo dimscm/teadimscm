@@ -512,6 +512,8 @@ button, input, select { font: inherit; color: inherit; }
 }
 .lad .r { text-align: right; }
 .lad.on { background: var(--accent-soft); }
+/* Baris jumlah triwulan. */
+.lad.tot { border-top: 2px solid var(--line-strong); font-weight: 700; }
 .lad .pill { min-width: 40px; }
 
 /* ── Panel detail ─────────────────────────────────────────────────────── */
@@ -1355,7 +1357,9 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
 
   var sim = {
     produk: "", siap: "",
+    mode: "bulan",
     minggu: 0,
+    wk: [4, 4, 5],
     channel: "", pl: "baru",
     q1: 0, q2: 0, qLain: 0,
     tw: "BELUM", capai: true, w03: true, syarat: false,
@@ -1370,21 +1374,39 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     return sim.minggu || NWEEK;
   }
 
-  function skalaMinggu() {
-    return minggu() / NWEEK;
+  function skalaMinggu(wk) {
+    return (wk || minggu()) / NWEEK;
   }
 
   /* Band untuk tabel yang ambangnya bulanan (TPH dan strata produk). */
-  function bandBulanan(tabel, nilai) {
-    var s = skalaMinggu();
+  function bandBulanan(tabel, nilai, wk) {
+    var s = skalaMinggu(wk);
     for (var i = 0; i < tabel.length; i++) {
       if (nilai >= tabel[i].min * s) return tabel[i];
     }
     return null;
   }
 
-  function minBulan(b) {
-    return b.min * skalaMinggu();
+  function minBulan(b, wk) {
+    return b.min * skalaMinggu(wk);
+  }
+
+  var BULAN_NAMA = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli",
+    "Agustus", "September", "Oktober", "November", "Desember"];
+
+  /* Triwulan tempat periode data berada, dipakai mode triwulan. */
+  function triwulan() {
+    var teks = (DATA.periode || "").toLowerCase();
+    var idx = 0;
+    BULAN_NAMA.forEach(function (n, i) { if (teks.indexOf(n.toLowerCase()) > -1) idx = i; });
+    var awal = Math.floor(idx / 3) * 3;
+    return {
+      awal: awal,
+      ini: idx - awal,
+      bulan: [0, 1, 2].map(function (k) { return BULAN_NAMA[awal + k]; }),
+      // Cashback bulanan baru cair di bulan berikutnya.
+      cair: [0, 1, 2].map(function (k) { return BULAN_NAMA[(awal + k + 1) % 12]; })
+    };
   }
 
   function bacaHarga() {
@@ -1479,14 +1501,14 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     return pilih;
   }
 
-  function hitungTph() {
-    var q350 = sim.q1, q500 = sim.q2, mix = q350 + q500;
+  function hitungTph(q350, q500, wk) {
+    var mix = q350 + q500;
     var dof = dofTph(mix, sim.syarat);
     var harga = SIM.tph.pl[sim.channel] || {};
     var pl350 = (harga["350"] || {})[sim.pl] || 0;
     var pl500 = (harga["500"] || {})[sim.pl] || 0;
     var nett350 = pl350 - dof.disc, nett500 = pl500 - dof.disc;
-    var band = bandBulanan(SIM.tph.ikat[sim.channel] || [], mix);
+    var band = bandBulanan(SIM.tph.ikat[sim.channel] || [], mix, wk);
     var cb = sim.capai && band ? band.cb : 0;
     var bonusCrt = (sim.capai && sim.w03 && band) ? band.bonus : 0;
     var nilaiBonus = bonusCrt * nett350;
@@ -1524,10 +1546,10 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     return 0;
   }
 
-  function hitungLm600() {
-    var q = sim.q1, mix = q + sim.qLain;
+  function hitungLm600(q, qLain, wk) {
+    var mix = q + qLain;
     var nett = nettLm(mix, "600", sim.channel, sim.pl);
-    var perWk = q / minggu();
+    var perWk = q / (wk || minggu());
     var band = bandPada(SIM.lm.ikat600, perWk);
     var cb = band ? band.cb : 0;
     var bonus = bonusTw(band, sim.tw, "tw90", "tw100");
@@ -1539,11 +1561,11 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     };
   }
 
-  function hitungLmMix() {
-    var q1500 = sim.q1, q330 = sim.q2, mix = q1500 + q330 + sim.qLain;
+  function hitungLmMix(q1500, q330, qLain, wk) {
+    var mix = q1500 + q330 + qLain;
     var n1500 = nettLm(mix, "1500", sim.channel, sim.pl);
     var n330 = nettLm(mix, "330", sim.channel, sim.pl);
-    var perWk = (q1500 + q330) / minggu();
+    var perWk = (q1500 + q330) / (wk || minggu());
     var band = bandPada(SIM.lm.ikatMix, perWk);
     var cb1500 = band ? band.cb : 0, cb330 = band ? band.cb330 : 0;
     var b1500 = bonusTw(band, sim.tw, "tw90", "tw100");
@@ -1558,6 +1580,123 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       totalBonus: q1500 * b1500 + q330 * b330,
       benefit: q1500 * (cb1500 + b1500) + q330 * (cb330 + b330)
     };
+  }
+
+  /* Satu bulan dalam bentuk seragam, supaya tabel triwulan bisa memakai
+     keempat produk dengan kolom yang sama. */
+  function hitungBulan(p, jenis, q1, q2, qLain, wk) {
+    if (jenis === "tph") {
+      var t = hitungTph(q1, q2, wk);
+      return { qty: t.mix, zona: t.zona, cbCrt: t.cb, cashback: t.totalCb,
+        bonus: t.nilaiBonus, benefit: t.benefit,
+        sku: [{ label: "350", faktur: t.nett350, akhir: t.akhir350 },
+          { label: "500", faktur: t.nett500, akhir: t.akhir500 }] };
+    }
+    if (jenis === "lm600") {
+      var a = hitungLm600(q1, qLain, wk);
+      return { qty: q1, zona: a.zona, cbCrt: a.cb, cashback: a.totalCb,
+        bonus: a.totalBonus, benefit: a.benefit,
+        sku: [{ label: "600", faktur: a.nett, akhir: a.akhir }] };
+    }
+    if (jenis === "lmmix") {
+      var b = hitungLmMix(q1, q2, qLain, wk);
+      return { qty: q1 + q2, zona: b.zona, cbCrt: b.cb1500, cashback: b.totalCb,
+        bonus: b.totalBonus, benefit: b.benefit,
+        sku: [{ label: "1500", faktur: b.nett1500, akhir: b.akhir1500 },
+          { label: "330", faktur: b.nett330, akhir: b.akhir330 }] };
+    }
+    // Produk tanpa sheet harga: strata cashback + harga yang diisi sendiri.
+    var hrg = hargaProduk(p);
+    var bands = bandsSim(p, sim.channel);
+    var band = bandBulanan(bands, q1, wk);
+    var tarif = band
+      ? ((band.rate2 === null || band.rate2 === undefined)
+        ? band.rate : band.rate * sim.share + band.rate2 * (1 - sim.share))
+      : 0;
+    var syaratAch = p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch;
+    var tgtBulan = sim.mode === "triwulan" ? sim.tgt * wk : sim.tgt;
+    if (syaratAch && tgtBulan > 0 && q1 < tgtBulan) tarif = 0;
+    return { qty: q1, zona: tarif ? band.zona : "", cbCrt: tarif, cashback: q1 * tarif,
+      bonus: 0, benefit: q1 * tarif,
+      sku: [{ label: "", faktur: hrg.crt, akhir: hrg.crt ? hrg.crt - tarif : 0 }] };
+  }
+
+  /* ── Mode triwulan: tiga bulan dijumlahkan ─────────────────────────── */
+  function hasilTriwulan(p, jenis) {
+    var tw = triwulan();
+    var bulan = [0, 1, 2].map(function (k) {
+      var wk = sim.wk[k];
+      return {
+        nama: tw.bulan[k], cair: tw.cair[k], wk: wk,
+        h: hitungBulan(p, jenis, sim.q1 * wk, sim.q2 * wk, sim.qLain * wk, wk)
+      };
+    });
+
+    var tot = { qty: 0, cashback: 0, bonus: 0, benefit: 0, minggu: 0 };
+    bulan.forEach(function (b) {
+      tot.qty += b.h.qty;
+      tot.cashback += b.h.cashback;
+      tot.bonus += b.h.bonus;
+      tot.benefit += b.h.benefit;
+      tot.minggu += b.wk;
+    });
+
+    var kartu =
+      besar("Qty triwulan", fmt(tot.qty) + " crt", tot.minggu + " minggu · " +
+        fmt(sim.q1 + sim.q2) + " crt/minggu") +
+      besar("Cashback triwulan", rp(tot.cashback), "cair tiap bulan berikutnya") +
+      besar(jenis === "tph" ? "Bonus produk" : "Bonus triwulan", rp(tot.bonus),
+        jenis === "tph" ? "nilai bonus TPH 350 tiap bulan"
+          : sim.tw === "BELUM" ? "belum memenuhi" : "cair setelah triwulan tutup") +
+      besar("Total benefit", rp(tot.benefit), "DOF + cashback + bonus");
+
+    var kolomSku = bulan[0].h.sku;
+    var head = '<div class="lad head"><div>Bulan</div><div class="r">Qty</div>' +
+      '<div class="r">Zona</div>' +
+      kolomSku.map(function (s2) { return '<div class="r">' + esc(("Faktur " + s2.label).trim()) + "</div>"; }).join("") +
+      '<div class="r">Cashback</div><div class="r">' +
+      (jenis === "tph" ? "Bonus produk" : "Bonus TW") + "</div>" +
+      kolomSku.map(function (s2) { return '<div class="r">' + esc(("Nett " + s2.label).trim()) + "</div>"; }).join("") +
+      "</div>";
+
+    var body = bulan.map(function (b) {
+      return '<div class="lad' + (tw.ini === bulan.indexOf(b) ? " on" : "") + '">' +
+        "<div>" + esc(b.nama) + '<div class="sub2">' + b.wk + " minggu</div></div>" +
+        '<div class="r num"><span class="mlabel">Qty </span>' + fmt(b.h.qty) + " crt</div>" +
+        '<div class="r"><span class="mlabel">Zona </span><span class="pill ' +
+        (b.h.zona ? "good" : "none") + '">' + esc(b.h.zona || "–") + "</span></div>" +
+        b.h.sku.map(function (s2) {
+          return '<div class="r num"><span class="mlabel">' + esc(("Faktur " + s2.label).trim()) +
+            " </span>" + rp(s2.faktur) + "</div>";
+        }).join("") +
+        '<div class="r num"><span class="mlabel">Cashback </span>' + rp(b.h.cashback) +
+        '<div class="sub2">cair ' + esc(b.cair) + "</div></div>" +
+        '<div class="r num"><span class="mlabel">Bonus </span>' + rp(b.h.bonus) + "</div>" +
+        b.h.sku.map(function (s2) {
+          return '<div class="r num"><span class="mlabel">' + esc(("Nett " + s2.label).trim()) +
+            " </span>" + rp(s2.akhir) + "</div>";
+        }).join("") +
+        "</div>";
+    }).join("");
+
+    var totalRow = '<div class="lad tot"><div>TRIWULAN</div>' +
+      '<div class="r num"><span class="mlabel">Qty </span>' + fmt(tot.qty) + " crt</div>" +
+      '<div class="r">–</div>' +
+      kolomSku.map(function () { return '<div class="r">–</div>'; }).join("") +
+      '<div class="r num"><span class="mlabel">Cashback </span>' + rp(tot.cashback) + "</div>" +
+      '<div class="r num"><span class="mlabel">Bonus </span>' + rp(tot.bonus) + "</div>" +
+      kolomSku.map(function () { return '<div class="r">–</div>'; }).join("") +
+      "</div>";
+
+    return '<section class="cards sim-cards">' + kartu + "</section>" +
+      '<div class="sec">Tiga bulan ' + esc(tw.bulan.join(" · ")) + "</div>" +
+      '<div class="tbl">' + head + body + totalRow + "</div>" +
+      CATATAN_WAKTU +
+      '<p class="note">Zona ditentukan rata-rata mingguan, dan qty per minggu di sini sama tiap' +
+      " bulan, jadi zonanya pun sama — yang berbeda hanya jumlah kartonnya: bulan 5 minggu" +
+      " otomatis 25% lebih banyak dari bulan 4 minggu. Tier DOF tetap dihitung dari qty bulan" +
+      " itu sendiri, jadi harga fakturnya bisa berbeda antar bulan.</p>" +
+      (jenis === "umum" ? "" : catatanSim(jenis === "tph" ? "tph" : "lm"));
   }
 
   /* ── Nilai awal: diambil dari outlet produk itu sendiri ─────────────── */
@@ -1595,6 +1734,8 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     sim.vol = tengah;
     sim.tgt = tengah;
     if (!sim.minggu) sim.minggu = NWEEK;
+    // Bulan berjalan di triwulan ini memakai jumlah minggu periode datanya.
+    sim.wk[triwulan().ini] = NWEEK;
     sim.outlet = "";
     sim.produk = p.id;
     sim.siap = p.id;
@@ -1631,30 +1772,45 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
   /* ── Formulir tiap jenis ───────────────────────────────────────────── */
   function formSim(p, jenis) {
     var daftar = channelSim(jenis, p);
+    var tri = sim.mode === "triwulan";
+    // Di mode triwulan semua qty diisi PER MINGGU: qty bulan tinggal dikali
+    // jumlah minggu bulan itu, persis seperti target mingguan dikali 4 atau 5.
+    var per = tri ? " (crt/mgg)" : " (crt/bln)";
     var f = "";
+
+    f += fieldSel("s-mode", "Periode", [
+      { v: "bulan", t: "Satu bulan" }, { v: "triwulan", t: "Triwulan (3 bulan)" }
+    ], sim.mode);
     if (daftar.length > 1) f += fieldSel("s-channel", "Channel", daftar, sim.channel);
+
     // Sheet simulasi punya sel "JML WEEK BULAN"; di web jadi pilihan, supaya
     // bulan 5 minggu (mis. Desember) bisa dihitung tanpa menunggu file baru.
-    f += fieldSel("s-minggu", "Jumlah minggu", [
-      { v: 4, t: "4 minggu" }, { v: 5, t: "5 minggu" }
-    ], minggu());
+    var PILIH_WK = [{ v: 4, t: "4 minggu" }, { v: 5, t: "5 minggu" }];
+    if (tri) {
+      var tw = triwulan();
+      f += tw.bulan.map(function (nama, k) {
+        return fieldSel("s-wk" + k, "Minggu " + nama, PILIH_WK, sim.wk[k]);
+      }).join("");
+    } else {
+      f += fieldSel("s-minggu", "Jumlah minggu", PILIH_WK, minggu());
+    }
 
     if (jenis === "tph") {
       f += fieldSel("s-pl", "Price list", PL_PILIHAN(), sim.pl);
-      f += fieldNum("s-q1", "Qty TPH 350 (crt/bln)", sim.q1);
-      f += fieldNum("s-q2", "Qty TPH 500 (crt/bln)", sim.q2);
+      f += fieldNum("s-q1", "Qty TPH 350" + per, sim.q1);
+      f += fieldNum("s-q2", "Qty TPH 500" + per, sim.q2);
       f += fieldSel("s-capai", "Capai 100% target", YA_TIDAK, sim.capai ? "ya" : "tidak");
       f += fieldSel("s-w03", "W03 ≥ 70%", YA_TIDAK, sim.w03 ? "ya" : "tidak");
       f += fieldSel("s-syarat", "Syarat DOF Rp900", YA_TIDAK, sim.syarat ? "ya" : "tidak");
     } else if (jenis === "lm600") {
       f += fieldSel("s-pl", "Price list", PL_PILIHAN(), sim.pl);
-      f += fieldNum("s-q1", "Qty LM 600 (crt/bln)", sim.q1);
+      f += fieldNum("s-q1", "Qty LM 600" + per, sim.q1);
       f += fieldNum("s-qlain", "Qty LM lain (tier DOF)", sim.qLain);
       f += fieldSel("s-tw", "Status triwulan", ["BELUM", "90-99%", "≥100%"], sim.tw);
     } else if (jenis === "lmmix") {
       f += fieldSel("s-pl", "Price list", PL_PILIHAN(), sim.pl);
-      f += fieldNum("s-q1", "Qty LM 1500 (crt/bln)", sim.q1);
-      f += fieldNum("s-q2", "Qty LM 330 (crt/bln)", sim.q2);
+      f += fieldNum("s-q1", "Qty LM 1500" + per, sim.q1);
+      f += fieldNum("s-q2", "Qty LM 330" + per, sim.q2);
       f += fieldNum("s-qlain", "Qty LM lain (tier DOF)", sim.qLain);
       f += fieldSel("s-tw", "Status triwulan", ["BELUM", "90-99%", "≥100%"], sim.tw);
     } else {
@@ -1662,9 +1818,11 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       var satuan = p.satuan || "crt";
       f += fieldNum("s-harga", "Harga jual / " + satuan + " (Rp)", h.crt || 0, 500);
       f += fieldNum("s-isi", "Isi / " + satuan + " (opsional)", h.isi || 0);
-      f += fieldNum("s-vol", "Volume (" + satuan + ")", sim.vol);
+      f += tri
+        ? fieldNum("s-q1", "Qty " + satuan + "/mgg", sim.q1)
+        : fieldNum("s-vol", "Volume (" + satuan + ")", sim.vol);
       if (p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch) {
-        f += fieldNum("s-tgt", "Target bulan ini", sim.tgt);
+        f += fieldNum("s-tgt", tri ? "Target / minggu" : "Target bulan ini", sim.tgt);
       }
     }
     return f;
@@ -1685,7 +1843,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
           esc(x.label) + "</option>";
       }).join("") + "</select></div>";
 
-    var geser = jenis === "umum"
+    var geser = (jenis === "umum" && sim.mode !== "triwulan")
       ? '<label class="sim-range"><span>Geser volume</span><input id="s-range" type="range" min="0" max="' +
         Math.max(Math.round(volMaksUmum(p) * 1.25), sim.vol) + '" step="1" value="' + sim.vol +
         '" aria-label="Volume"></label>'
@@ -1714,11 +1872,17 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var p = produkSim();
     if (!p || !$("#sim-out")) return;
     var jenis = jenisSim(p);
-    if (jenis === "tph") $("#sim-out").innerHTML = hasilTph(p);
+    if (sim.mode === "triwulan") $("#sim-out").innerHTML = hasilTriwulan(p, jenis);
+    else if (jenis === "tph") $("#sim-out").innerHTML = hasilTph(p);
     else if (jenis === "lm600") $("#sim-out").innerHTML = hasilLm600(p);
     else if (jenis === "lmmix") $("#sim-out").innerHTML = hasilLmMix(p);
     else $("#sim-out").innerHTML = hasilUmum(p);
   }
+
+  var CATATAN_WAKTU = '<p class="note"><b>Harga faktur</b> adalah yang dibayar toko saat beli:' +
+    " price list dikurangi DOF (discount on faktur). <b>Cashback bulanan</b> tidak memotong" +
+    " faktur — cairnya bulan berikutnya. <b>Bonus triwulan</b> cair setelah triwulan ditutup." +
+    " Nett akhir adalah harga efektif kalau semuanya sudah cair.</p>";
 
   function catatanSim(jenis) {
     var isi = jenis === "tph" ? (SIM.tph.catatan || []) : (SIM.lm.catatan || []);
@@ -1728,20 +1892,23 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
   }
 
   function hasilTph(p) {
-    var h = hitungTph();
+    var h = hitungTph(sim.q1, sim.q2, minggu());
     var kartu =
-      besar("Nett 350 akhir", rp(h.akhir350), "setelah DOF, cashback, bonus") +
-      besar("Nett 500 akhir", rp(h.akhir500), "setelah DOF, cashback, bonus") +
+      besar("Harga faktur 350", rp(h.nett350), "PL − DOF, dibayar saat beli") +
+      besar("Harga faktur 500", rp(h.nett500), "PL − DOF, dibayar saat beli") +
+      besar("Nett 350 akhir", rp(h.akhir350), "setelah cashback & bonus cair") +
+      besar("Nett 500 akhir", rp(h.akhir500), "setelah cashback & bonus cair") +
       besar("Total benefit", rp(h.benefit), "DOF + cashback + bonus");
 
     var rinci =
       hist2("Total mix (350 + 500)", fmt(h.mix) + " crt") +
       hist2("Price list 350 / 500", rp(h.pl350) + " / " + rp(h.pl500)) +
-      hist2("DOF per crt", rp(h.dof)) +
-      hist2("Nett setelah DOF", rp(h.nett350) + " / " + rp(h.nett500)) +
+      hist2("DOF per crt", rp(h.dof) + " — potongan di faktur") +
+      hist2("Harga faktur 350 / 500", rp(h.nett350) + " / " + rp(h.nett500)) +
       hist2("Zona ikat target", h.zona || "belum masuk strata") +
-      hist2("Cashback per crt", rp(h.cb) + (sim.capai ? "" : " (target belum tercapai)")) +
-      hist2("Total cashback", rp(h.totalCb)) +
+      hist2("Cashback per crt", rp(h.cb) +
+        (sim.capai ? " — cair bulan depan" : " (target belum tercapai)")) +
+      hist2("Total cashback", rp(h.totalCb) + " — cair bulan depan") +
       hist2("Bonus TPH 350", h.bonusCrt ? fmt(h.bonusCrt) + " crt · " + rp(h.nilaiBonus) : "tidak dapat") +
       hist2("Bonus per crt", rp(h.bonusCrtRp));
 
@@ -1802,52 +1969,57 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       }).join("") + "</div>";
 
     return '<section class="cards sim-cards">' + kartu + "</section>" + hint +
-      '<div class="sec">Rincian</div>' + rinci + tangga + catatanSim("tph");
+      '<div class="sec">Rincian</div>' + rinci + CATATAN_WAKTU + tangga + catatanSim("tph");
   }
 
   function hasilLm600(p) {
-    var h = hitungLm600();
+    var h = hitungLm600(sim.q1, sim.qLain, minggu());
     var kartu =
-      besar("Nett 600 akhir", rp(h.akhir), "setelah DOF, cashback, bonus TW") +
-      besar("Total cashback", rp(h.totalCb), fmt(sim.q1) + " crt x " + rp(h.cb)) +
-      besar("Bonus triwulan", rp(h.totalBonus), sim.tw === "BELUM" ? "belum memenuhi" : "status " + sim.tw);
+      besar("Harga faktur", rp(h.nett), "nett DOF, dibayar saat beli") +
+      besar("Nett 600 akhir", rp(h.akhir), "setelah cashback & bonus TW cair") +
+      besar("Total cashback", rp(h.totalCb), "cair bulan depan") +
+      besar("Bonus triwulan", rp(h.totalBonus), sim.tw === "BELUM"
+        ? "belum memenuhi" : "cair setelah triwulan tutup");
 
     var rinci =
       hist2("Total mix DOF", fmt(h.mix) + " crt") +
-      hist2("Nett setelah DOF", rp(h.nett)) +
+      hist2("Harga faktur (nett DOF)", rp(h.nett)) +
       hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + minggu() + " minggu)") +
       hist2("Zona ikat target", h.zona || "belum masuk strata") +
-      hist2("Cashback per crt", rp(h.cb)) +
-      hist2("Bonus triwulan per crt", rp(h.bonus)) +
+      hist2("Cashback per crt", rp(h.cb) + " — cair bulan depan") +
+      hist2("Bonus triwulan per crt", rp(h.bonus) + " — cair setelah triwulan tutup") +
       hist2("Nett akhir", rp(h.akhir));
 
     return '<section class="cards sim-cards">' + kartu + "</section>" +
       hintLm(h, SIM.lm.ikat600, sim.q1, h.nett, "600") +
-      '<div class="sec">Rincian</div>' + rinci +
+      '<div class="sec">Rincian</div>' + rinci + CATATAN_WAKTU +
       tanggaNettLm(h.mix, ["600"]) +
       tanggaIkatLm(SIM.lm.ikat600, h, [{ sku: "600", nett: h.nett, cb: "cb" }]) +
       catatanSim("lm");
   }
 
   function hasilLmMix(p) {
-    var h = hitungLmMix();
+    var h = hitungLmMix(sim.q1, sim.q2, sim.qLain, minggu());
     var kartu =
-      besar("Nett 1500 akhir", rp(h.akhir1500), "setelah DOF, cashback, bonus TW") +
-      besar("Nett 330 akhir", rp(h.akhir330), "setelah DOF, cashback, bonus TW") +
-      besar("Total cashback", rp(h.totalCb), "bonus TW " + rp(h.totalBonus));
+      besar("Harga faktur 1500 / 330", rp(h.nett1500) + " / " + rp(h.nett330),
+        "nett DOF, dibayar saat beli") +
+      besar("Nett 1500 akhir", rp(h.akhir1500), "setelah cashback & bonus TW cair") +
+      besar("Nett 330 akhir", rp(h.akhir330), "setelah cashback & bonus TW cair") +
+      besar("Total cashback", rp(h.totalCb), "cair bulan depan · bonus TW " + rp(h.totalBonus));
 
     var rinci =
       hist2("Total mix DOF", fmt(h.mix) + " crt") +
-      hist2("Nett setelah DOF", rp(h.nett1500) + " / " + rp(h.nett330)) +
+      hist2("Harga faktur 1500 / 330 (nett DOF)", rp(h.nett1500) + " / " + rp(h.nett330)) +
       hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + minggu() + " minggu)") +
       hist2("Zona ikat target", h.zona || "belum masuk strata") +
-      hist2("Cashback per crt", rp(h.cb1500) + " / " + rp(h.cb330)) +
-      hist2("Bonus triwulan per crt", rp(h.bonus1500) + " / " + rp(h.bonus330)) +
+      hist2("Cashback per crt", rp(h.cb1500) + " / " + rp(h.cb330) + " — cair bulan depan") +
+      hist2("Bonus triwulan per crt", rp(h.bonus1500) + " / " + rp(h.bonus330) +
+        " — cair setelah triwulan tutup") +
       hist2("Nett akhir 1500 / 330", rp(h.akhir1500) + " / " + rp(h.akhir330));
 
     return '<section class="cards sim-cards">' + kartu + "</section>" +
       hintLm(h, SIM.lm.ikatMix, sim.q1 + sim.q2, h.nett1500, "1500") +
-      '<div class="sec">Rincian</div>' + rinci +
+      '<div class="sec">Rincian</div>' + rinci + CATATAN_WAKTU +
       tanggaNettLm(h.mix, ["1500", "330"]) +
       tanggaIkatLm(SIM.lm.ikatMix, h, [{ sku: "1500", nett: h.nett1500, cb: "cb" },
         { sku: "330", nett: h.nett330, cb: "cb330" }]) +
@@ -1986,11 +2158,13 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       (gugurAch || !kini.zona ? "crit" : "good") + '">' +
       (gugurAch ? "tertahan" : kini.zona || "–") + "</span></div>" +
       '<div class="m">' + fmt(vol) + " " + esc(satuan) + " / bulan</div></div>" +
-      besar("Harga nett /" + satuan, nett === null ? "–" : rp(nett),
-        h.crt ? "dari " + rp(h.crt) + (h.isi ? " · " + rp(nett / h.isi) + " /pcs" : "")
+      besar("Harga faktur /" + satuan, h.crt ? rp(h.crt) : "–",
+        h.crt ? "dibayar saat beli" : "isi harga jual dulu") +
+      besar("Nett akhir /" + satuan, nett === null ? "–" : rp(nett),
+        h.crt ? "setelah cashback" + (h.isi ? " · " + rp(nett / h.isi) + " /pcs" : "")
           : "isi harga jual dulu") +
       besar("Total cashback", rp(cb), gugurAch ? "tertahan: target belum tercapai"
-        : kini.zona ? "zona " + kini.zona : "di bawah strata terendah");
+        : kini.zona ? "cair bulan depan · zona " + kini.zona : "di bawah strata terendah");
 
     var rinci =
       hist2("Tarif cashback", rp(rate) + " / " + esc(satuan)) +
@@ -2050,11 +2224,12 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var p = produkSim();
     if (!p) return;
     var jenis = jenisSim(p);
+    if (sim.mode === "triwulan") return exportTriwulan(p, jenis);
     var baris = [["Produk", p.label], ["Channel", sim.channel || "semua"]];
     var satuan = p.satuan || "crt";
 
     if (jenis === "tph") {
-      var t = hitungTph();
+      var t = hitungTph(sim.q1, sim.q2, minggu());
       baris.push(["Price list", sim.pl], ["Qty 350", sim.q1], ["Qty 500", sim.q2],
         ["Total mix", t.mix], ["DOF /crt", t.dof], ["Zona", t.zona],
         ["Cashback /crt", t.cb], ["Bonus 350 (crt)", t.bonusCrt],
@@ -2067,7 +2242,8 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
           Math.round(t.nett350 - (sim.capai ? b.cb : 0) - bonusRp)]);
       });
     } else if (jenis === "lm600" || jenis === "lmmix") {
-      var m = jenis === "lm600" ? hitungLm600() : hitungLmMix();
+      var m = jenis === "lm600" ? hitungLm600(sim.q1, sim.qLain, minggu())
+        : hitungLmMix(sim.q1, sim.q2, sim.qLain, minggu());
       baris.push(["Price list", sim.pl], ["Status triwulan", sim.tw],
         ["Qty utama", sim.q1], ["Qty kedua", sim.q2], ["Qty LM lain", sim.qLain],
         ["Total mix DOF", m.mix], ["Rata-rata /minggu", Math.round(m.perWk)],
@@ -2112,6 +2288,36 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       "﻿" + teks);
   }
 
+  function exportTriwulan(p, jenis) {
+    var tw = triwulan();
+    var baris = [["Produk", p.label], ["Channel", sim.channel || "semua"],
+      ["Mode", "triwulan"], ["Qty per minggu", sim.q1 + (sim.q2 ? " + " + sim.q2 : "")],
+      ["Status triwulan", sim.tw], [],
+      ["Bulan", "Minggu", "Qty (crt)", "Zona", "Harga faktur", "Cashback (Rp)",
+        "Cair di", "Bonus TW (Rp)", "Nett akhir"]];
+    var tot = { qty: 0, cb: 0, bonus: 0 };
+    [0, 1, 2].forEach(function (k) {
+      var wk = sim.wk[k];
+      var h = hitungBulan(p, jenis, sim.q1 * wk, sim.q2 * wk, sim.qLain * wk, wk);
+      tot.qty += h.qty; tot.cb += h.cashback; tot.bonus += h.bonus;
+      baris.push([tw.bulan[k], wk, Math.round(h.qty), h.zona,
+        h.sku.map(function (s2) { return Math.round(s2.faktur); }).join(" / "),
+        Math.round(h.cashback), tw.cair[k], Math.round(h.bonus),
+        h.sku.map(function (s2) { return Math.round(s2.akhir); }).join(" / ")]);
+    });
+    baris.push(["TRIWULAN", sim.wk[0] + sim.wk[1] + sim.wk[2], Math.round(tot.qty), "", "",
+      Math.round(tot.cb), "", Math.round(tot.bonus), ""]);
+
+    var teks = baris.map(function (cols) {
+      return cols.map(function (c) {
+        var t = c === null || c === undefined ? "" : String(c);
+        return /[",;\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+      }).join(";");
+    }).join("\r\n");
+    saveFile("simulasi-triwulan-" + p.label.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".csv",
+      "\ufeff" + teks);
+  }
+
   /* ── Pemasangan isian ──────────────────────────────────────────────── */
   function bindSim() {
     var p = produkSim();
@@ -2133,6 +2339,29 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
 
     pasang("s-channel", function (el) { sim.channel = el.value; drawSim(); }, "change");
     pasang("s-minggu", function (el) { sim.minggu = Number(el.value) || NWEEK; drawSim(); }, "change");
+    [0, 1, 2].forEach(function (k) {
+      pasang("s-wk" + k, function (el) { sim.wk[k] = Number(el.value) || 4; drawSim(); }, "change");
+    });
+
+    // Ganti mode: angka yang sudah diisi ikut dikonversi bulan <-> minggu
+    // supaya tidak perlu diketik ulang.
+    pasang("s-mode", function (el) {
+      if (el.value === sim.mode) return;
+      var w = minggu();
+      // Produk tanpa sheet harga memakai "volume" di mode bulanan dan "qty per
+      // minggu" di mode triwulan — isinya disalin dulu supaya tidak hilang.
+      if (jenis === "umum") {
+        if (el.value === "triwulan") sim.q1 = sim.vol;
+        else sim.vol = sim.q1;
+      }
+      ["q1", "q2", "qLain", "vol", "tgt"].forEach(function (k) {
+        sim[k] = el.value === "triwulan"
+          ? Math.round(sim[k] / w)
+          : Math.round(sim[k] * w);
+      });
+      sim.mode = el.value;
+      render();
+    }, "change");
     pasang("s-pl", function (el) { sim.pl = el.value; drawSim(); }, "change");
     pasang("s-tw", function (el) { sim.tw = el.value; drawSim(); }, "change");
     pasang("s-capai", function (el) { sim.capai = el.value === "ya"; drawSim(); }, "change");
@@ -2144,7 +2373,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     pasang("s-harga", function (el) { setHarga(p, "crt", el.value); drawSim(); });
     pasang("s-tgt", function (el) { sim.tgt = angka(el.value); drawSim(); });
 
-    if (jenis === "umum") {
+    if (jenis === "umum" && $("#s-vol")) {
       var vol = $("#s-vol"), rng = $("#s-range");
       var setVol = function (v, dari) {
         sim.vol = angka(v);
@@ -2154,9 +2383,8 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       };
       vol.addEventListener("input", function () { setVol(vol.value, "vol"); });
       rng.addEventListener("input", function () { setVol(rng.value, "range"); });
-    } else {
-      pasang("s-q1", function (el) { sim.q1 = angka(el.value); drawSim(); });
     }
+    pasang("s-q1", function (el) { sim.q1 = angka(el.value); drawSim(); });
   }
 
   function angka(v) {
