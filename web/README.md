@@ -105,9 +105,26 @@ persis yang ditulis di sheet itu:
 
 Zona TPH dihitung dari total mix 350+500 sebulan; zona LM dari rata-rata
 mingguan (qty bulan ÷ jumlah minggu). Isiannya mengikuti sheet: channel,
-price list lama/baru, qty tiap SKU, qty LM lain untuk tier DOF, status
-triwulan, serta syarat-syarat TPH (capai 100% target, W03 ≥ 70%, syarat DOF
-Rp900).
+**jumlah minggu**, price list lama/baru, qty tiap SKU, qty LM lain untuk tier
+DOF, status triwulan, serta syarat-syarat TPH (capai 100% target, W03 ≥ 70%,
+syarat DOF Rp900).
+
+> **Bulan 4 minggu vs 5 minggu.** Semua tabel ikat target sebenarnya menyebut
+> minimum **per minggu**, jadi ambang bulanannya bergeser: Oktober–November 4
+> minggu, Desember 5. Sheet simulasi menuliskan ambang TPH sudah dikali 4; di
+> web ambang itu dikembalikan ke per minggu lalu dikali jumlah minggu yang
+> dipilih, persis seperti sel "JML WEEK BULAN" di sheet LM. Pilihan 4/5 minggu
+> ada di baris isian dan ikut mengubah zona TPH, LM, dan strata produk
+> sekaligus — tarif, bonus, dan tangga DOF tidak ikut berubah, karena DOF
+> dihitung dari akumulasi qty, bukan dari minggu.
+>
+> Hasil 5 minggu sudah dicocokkan dengan strata September (bulan 5 minggu yang
+> datanya ada): TPH SO 5.000/12.500/25.000/35.000/50.000, LM 600
+> 500/1.250/3.250/7.500/12.500, Nipis Madu 200/325/1.000/2.000/3.000 —
+> semuanya sama dengan tabel resmi September.
+>
+> Bonus triwulan dihitung per karton bulan berjalan, jadi untuk satu triwulan
+> penuh tiap bulan disimulasikan sendiri dengan jumlah minggunya masing-masing.
 
 Hasilnya: nett akhir tiap ukuran sebagai angka besar, rincian lengkap, dua
 tangga program (DOF dan ikat target) dengan baris yang sedang berlaku

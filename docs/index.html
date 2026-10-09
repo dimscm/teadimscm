@@ -1355,11 +1355,37 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
 
   var sim = {
     produk: "", siap: "",
+    minggu: 0,
     channel: "", pl: "baru",
     q1: 0, q2: 0, qLain: 0,
     tw: "BELUM", capai: true, w03: true, syarat: false,
     share: 1, vol: 0, tgt: 0, outlet: ""
   };
+
+  /* Jumlah minggu bulan yang disimulasikan. Tabel program menyebut minimum
+     PER MINGGU, jadi band bulanannya bergeser: Okt-Nov 4 minggu, Des 5. Sheet
+     simulasi menuliskan ambang TPH sudah dikali 4; di web ambang itu
+     dikembalikan ke per minggu lalu dikali jumlah minggu yang dipilih. */
+  function minggu() {
+    return sim.minggu || NWEEK;
+  }
+
+  function skalaMinggu() {
+    return minggu() / NWEEK;
+  }
+
+  /* Band untuk tabel yang ambangnya bulanan (TPH dan strata produk). */
+  function bandBulanan(tabel, nilai) {
+    var s = skalaMinggu();
+    for (var i = 0; i < tabel.length; i++) {
+      if (nilai >= tabel[i].min * s) return tabel[i];
+    }
+    return null;
+  }
+
+  function minBulan(b) {
+    return b.min * skalaMinggu();
+  }
 
   function bacaHarga() {
     try { return JSON.parse(localStorage.getItem(HARGA_KEY)) || {}; } catch (e) { return {}; }
@@ -1460,7 +1486,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var pl350 = (harga["350"] || {})[sim.pl] || 0;
     var pl500 = (harga["500"] || {})[sim.pl] || 0;
     var nett350 = pl350 - dof.disc, nett500 = pl500 - dof.disc;
-    var band = bandPada(SIM.tph.ikat[sim.channel] || [], mix);
+    var band = bandBulanan(SIM.tph.ikat[sim.channel] || [], mix);
     var cb = sim.capai && band ? band.cb : 0;
     var bonusCrt = (sim.capai && sim.w03 && band) ? band.bonus : 0;
     var nilaiBonus = bonusCrt * nett350;
@@ -1501,7 +1527,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
   function hitungLm600() {
     var q = sim.q1, mix = q + sim.qLain;
     var nett = nettLm(mix, "600", sim.channel, sim.pl);
-    var perWk = q / NWEEK;
+    var perWk = q / minggu();
     var band = bandPada(SIM.lm.ikat600, perWk);
     var cb = band ? band.cb : 0;
     var bonus = bonusTw(band, sim.tw, "tw90", "tw100");
@@ -1517,7 +1543,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var q1500 = sim.q1, q330 = sim.q2, mix = q1500 + q330 + sim.qLain;
     var n1500 = nettLm(mix, "1500", sim.channel, sim.pl);
     var n330 = nettLm(mix, "330", sim.channel, sim.pl);
-    var perWk = (q1500 + q330) / NWEEK;
+    var perWk = (q1500 + q330) / minggu();
     var band = bandPada(SIM.lm.ikatMix, perWk);
     var cb1500 = band ? band.cb : 0, cb330 = band ? band.cb330 : 0;
     var b1500 = bonusTw(band, sim.tw, "tw90", "tw100");
@@ -1568,6 +1594,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     sim.qLain = 0;
     sim.vol = tengah;
     sim.tgt = tengah;
+    if (!sim.minggu) sim.minggu = NWEEK;
     sim.outlet = "";
     sim.produk = p.id;
     sim.siap = p.id;
@@ -1606,6 +1633,11 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var daftar = channelSim(jenis, p);
     var f = "";
     if (daftar.length > 1) f += fieldSel("s-channel", "Channel", daftar, sim.channel);
+    // Sheet simulasi punya sel "JML WEEK BULAN"; di web jadi pilihan, supaya
+    // bulan 5 minggu (mis. Desember) bisa dihitung tanpa menunggu file baru.
+    f += fieldSel("s-minggu", "Jumlah minggu", [
+      { v: 4, t: "4 minggu" }, { v: 5, t: "5 minggu" }
+    ], minggu());
 
     if (jenis === "tph") {
       f += fieldSel("s-pl", "Price list", PL_PILIHAN(), sim.pl);
@@ -1669,7 +1701,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
 
   function volMaksUmum(p) {
     var bands = bandsSim(p, sim.channel);
-    return bands.length ? bands[0].min : 1000;
+    return bands.length ? minBulan(bands[0]) : 1000;
   }
 
   function bandsSim(p, tipe) {
@@ -1713,14 +1745,15 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       hist2("Bonus TPH 350", h.bonusCrt ? fmt(h.bonusCrt) + " crt · " + rp(h.nilaiBonus) : "tidak dapat") +
       hist2("Bonus per crt", rp(h.bonusCrtRp));
 
-    var naik = naikBand(SIM.tph.ikat[sim.channel] || [], h.mix);
+    var naik = naikBandBulanan(SIM.tph.ikat[sim.channel] || [], h.mix);
     var hint = "";
     if (naik) {
       var cbNaik = sim.capai ? naik.cb : 0;
       var bonusNaik = (sim.capai && sim.w03) ? naik.bonus * h.nett350 : 0;
-      var perCrt = naik.min ? bonusNaik / naik.min : 0;
-      hint = '<div class="sim-hint"><b>Tambah ' + fmt(naik.min - h.mix) +
-        " crt</b> (jadi " + fmt(naik.min) + " mix) → zona " + esc(naik.zona) + ", cashback " +
+      var minNaik = minBulan(naik);
+      var perCrt = minNaik ? bonusNaik / minNaik : 0;
+      hint = '<div class="sim-hint"><b>Tambah ' + fmt(minNaik - h.mix) +
+        " crt</b> (jadi " + fmt(minNaik) + " mix) → zona " + esc(naik.zona) + ", cashback " +
         rp(cbNaik) + " /crt" + (naik.bonus ? ", bonus " + fmt(naik.bonus) + " crt TPH 350" : "") +
         ". Nett 350 jadi " + rp(h.nett350 - cbNaik - perCrt) +
         ". Tarif zona baru berlaku untuk seluruh volume.</div>";
@@ -1756,10 +1789,12 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       (SIM.tph.ikat[sim.channel] || []).slice().reverse().map(function (b) {
         var aktif = h.band && b.zona === h.band.zona;
         var cb = sim.capai ? b.cb : 0;
-        var bonusRp = (sim.capai && sim.w03 && b.min) ? b.bonus * h.nett350 / b.min : 0;
+        var minB = minBulan(b);
+        var bonusRp = (sim.capai && sim.w03 && minB) ? b.bonus * h.nett350 / minB : 0;
         return '<div class="lad' + (aktif ? " on" : "") + '">' +
           '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona) + "</span></div>" +
-          '<div class="r num"><span class="mlabel">Min mix </span>' + fmt(b.min) + " crt</div>" +
+          '<div class="r num"><span class="mlabel">Min mix </span>' + fmt(minB) + " crt" +
+          '<div class="sub2">' + fmt(b.min / NWEEK) + " /minggu</div></div>" +
           '<div class="r num"><span class="mlabel">Cashback </span>' + rp(b.cb) + "</div>" +
           '<div class="r num"><span class="mlabel">Bonus </span>' + fmt(b.bonus) + " crt</div>" +
           '<div class="r num"><span class="mlabel">Nett 350 </span>' + rp(h.nett350 - cb - bonusRp) + "</div>" +
@@ -1780,7 +1815,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var rinci =
       hist2("Total mix DOF", fmt(h.mix) + " crt") +
       hist2("Nett setelah DOF", rp(h.nett)) +
-      hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + NWEEK + " minggu)") +
+      hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + minggu() + " minggu)") +
       hist2("Zona ikat target", h.zona || "belum masuk strata") +
       hist2("Cashback per crt", rp(h.cb)) +
       hist2("Bonus triwulan per crt", rp(h.bonus)) +
@@ -1804,7 +1839,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var rinci =
       hist2("Total mix DOF", fmt(h.mix) + " crt") +
       hist2("Nett setelah DOF", rp(h.nett1500) + " / " + rp(h.nett330)) +
-      hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + NWEEK + " minggu)") +
+      hist2("Rata-rata per minggu", fmt(h.perWk) + " crt (" + minggu() + " minggu)") +
       hist2("Zona ikat target", h.zona || "belum masuk strata") +
       hist2("Cashback per crt", rp(h.cb1500) + " / " + rp(h.cb330)) +
       hist2("Bonus triwulan per crt", rp(h.bonus1500) + " / " + rp(h.bonus330)) +
@@ -1827,6 +1862,14 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     return null;
   }
 
+  function naikBandBulanan(tabel, nilai) {
+    var s = skalaMinggu();
+    for (var i = tabel.length - 1; i >= 0; i--) {
+      if (tabel[i].min * s > nilai) return tabel[i];
+    }
+    return null;
+  }
+
   function naikDof(mix) {
     var hasil = null;
     SIM.tph.dof.forEach(function (b) {
@@ -1839,7 +1882,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     var naik = naikBand(tabel, h.perWk);
     var out = "";
     if (naik) {
-      var tambah = Math.ceil(naik.min * NWEEK - qty);
+      var tambah = Math.ceil(naik.min * minggu() - qty);
       var bonus = bonusTw(naik, sim.tw, "tw90", "tw100");
       out += '<div class="sim-hint"><b>Tambah ' + fmt(tambah) + " crt</b> (jadi " +
         fmt(qty + tambah) + " crt/bulan, " + fmt(naik.min) + " /minggu) → zona " + esc(naik.zona) +
@@ -1896,7 +1939,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       return '<div class="lad' + (aktif ? " on" : "") + '">' +
         '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona) + "</span></div>" +
         '<div class="r num"><span class="mlabel">Min </span>' + fmt(b.min) + " crt" +
-        '<div class="sub2">' + fmt(b.min * NWEEK) + " /bulan</div></div>" +
+        '<div class="sub2">' + fmt(b.min * minggu()) + " /bulan</div></div>" +
         '<div class="r num"><span class="mlabel">Cashback </span>' + rp(b.cb) +
         (skus.length > 1 ? " / " + rp(b.cb330 || 0) : "") + "</div>" +
         skus.map(function (s) {
@@ -1912,13 +1955,14 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
 
   /* ── Simulasi sederhana untuk produk tanpa sheet harga ─────────────── */
   function tarifPada(bands, vol, share) {
+    var skala = skalaMinggu();
     for (var i = 0; i < bands.length; i++) {
-      if (vol >= bands[i].min) {
+      if (vol >= bands[i].min * skala) {
         var b = bands[i];
         var rate = (b.rate2 === null || b.rate2 === undefined)
           ? b.rate
           : b.rate * share + b.rate2 * (1 - share);
-        return { rate: rate, zona: b.zona, min: b.min };
+        return { rate: rate, zona: b.zona, min: b.min * skala };
       }
     }
     return { rate: 0, zona: "", min: 0 };
@@ -1953,16 +1997,14 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       hist2("Diskon efektif", h.crt ? pct1(rate / h.crt) : "–") +
       hist2("Total bayar", bayar === null ? "–" : rp(bayar));
 
-    var naik = null;
-    for (var i = bands.length - 1; i >= 0; i--) {
-      if (bands[i].min > vol) { naik = bands[i]; break; }
-    }
+    var naik = naikBandBulanan(bands, vol);
     var hint = "";
     if (naik) {
-      var rNaik = tarifPada(bands, naik.min, sim.share).rate;
-      var cbNaik = Math.round(naik.min * rNaik);
-      hint = '<div class="sim-hint"><b>Tambah ' + fmt(naik.min - vol) + " " + esc(satuan) +
-        "</b> lagi (jadi " + fmt(naik.min) + ") → zona " + esc(naik.zona) + ", tarif " +
+      var minNaik = minBulan(naik);
+      var rNaik = tarifPada(bands, minNaik, sim.share).rate;
+      var cbNaik = Math.round(minNaik * rNaik);
+      hint = '<div class="sim-hint"><b>Tambah ' + fmt(minNaik - vol) + " " + esc(satuan) +
+        "</b> lagi (jadi " + fmt(minNaik) + ") → zona " + esc(naik.zona) + ", tarif " +
         rp(rNaik) + " /" + esc(satuan) + ". Total cashback " + rp(cbNaik) +
         " (naik " + rp(cbNaik - cb) + ")" +
         (h.crt ? ", harga nett " + rp(h.crt - rNaik) + " /" + esc(satuan) : "") +
@@ -1975,12 +2017,13 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       '<div class="r">Tarif /' + esc(satuan) + '</div><div class="r">Harga nett</div>' +
       '<div class="r">Dari volume ini</div></div>';
     var ladBody = bands.slice().reverse().map(function (b) {
-      var r2 = tarifPada(bands, b.min, sim.share).rate;
+      var minB = minBulan(b);
+      var r2 = tarifPada(bands, minB, sim.share).rate;
       var aktif = b.zona === kini.zona && !gugurAch;
-      var selisih = b.min - vol;
+      var selisih = minB - vol;
       return '<div class="lad' + (aktif ? " on" : "") + '">' +
         '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona || "–") + "</span></div>" +
-        '<div class="r num"><span class="mlabel">Minimal </span>' + fmt(b.min) + " " + esc(satuan) +
+        '<div class="r num"><span class="mlabel">Minimal </span>' + fmt(minB) + " " + esc(satuan) +
         '<div class="sub2">' + fmt(b.min / NWEEK) + " /minggu</div></div>" +
         '<div class="r num"><span class="mlabel">Tarif </span>' + rp(r2) + "</div>" +
         '<div class="r num"><span class="mlabel">Nett </span>' + (h.crt ? rp(h.crt - r2) : "–") + "</div>" +
@@ -1996,7 +2039,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
           " hanya dibayar kalau target bulan itu tercapai, jadi volume di bawah target tidak menghasilkan cashback.</p>"
         : "") +
       '<div class="sec">Rincian</div>' + rinci +
-      '<div class="sec">Strata ' + esc(p.label) + " — " + NWEEK + " minggu</div>" +
+      '<div class="sec">Strata ' + esc(p.label) + " — " + minggu() + " minggu</div>" +
       '<div class="tbl">' + ladHead + ladBody + "</div>" +
       '<p class="note">Produk ini belum punya sheet simulasi harga di workbook, jadi harga jualnya' +
       " diisi sendiri dan hanya tersimpan di peramban ini. Tarif dan zonanya tetap dari tabel strata di file.</p>";
@@ -2019,8 +2062,8 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
         ["Total benefit", Math.round(t.benefit)], [],
         ["Zona", "Min mix", "Cashback /crt", "Bonus crt", "Nett 350 akhir"]);
       (SIM.tph.ikat[sim.channel] || []).slice().reverse().forEach(function (b) {
-        var bonusRp = (sim.capai && sim.w03 && b.min) ? b.bonus * t.nett350 / b.min : 0;
-        baris.push([b.zona, b.min, b.cb, b.bonus,
+        var bonusRp = (sim.capai && sim.w03 && b.min) ? b.bonus * t.nett350 / minBulan(b) : 0;
+        baris.push([b.zona, minBulan(b), b.cb, b.bonus,
           Math.round(t.nett350 - (sim.capai ? b.cb : 0) - bonusRp)]);
       });
     } else if (jenis === "lm600" || jenis === "lmmix") {
@@ -2042,19 +2085,19 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
       baris.push(["Total cashback", Math.round(m.totalCb)], ["Bonus triwulan", Math.round(m.totalBonus)],
         [], ["Zona", "Min /minggu", "Min /bulan", "Cashback /crt"]);
       (jenis === "lm600" ? SIM.lm.ikat600 : SIM.lm.ikatMix).slice().reverse().forEach(function (b) {
-        baris.push([b.zona, b.min, b.min * NWEEK, b.cb]);
+        baris.push([b.zona, b.min, b.min * minggu(), b.cb]);
       });
     } else {
       var h = hargaProduk(p);
       var bands = bandsSim(p, sim.channel);
-      baris.push(["Satuan", satuan], ["Jumlah minggu", NWEEK],
+      baris.push(["Satuan", satuan], ["Jumlah minggu", minggu()],
         ["Harga jual / " + satuan, h.crt || ""], ["Volume disimulasikan", sim.vol], [],
         ["Zona", "Minimal (" + satuan + ")", "Minimal / minggu", "Tarif /" + satuan,
           "Harga nett /" + satuan, "Total cashback di minimal"]);
       bands.slice().reverse().forEach(function (b) {
-        var r = tarifPada(bands, b.min, sim.share).rate;
-        baris.push([b.zona, b.min, Math.round(b.min / NWEEK), Math.round(r),
-          h.crt ? Math.round(h.crt - r) : "", Math.round(b.min * r)]);
+        var r = tarifPada(bands, minBulan(b), sim.share).rate;
+        baris.push([b.zona, minBulan(b), Math.round(b.min / NWEEK), Math.round(r),
+          h.crt ? Math.round(h.crt - r) : "", Math.round(minBulan(b) * r)]);
       });
     }
 
@@ -2089,6 +2132,7 @@ window.MASTER_DATA = {"periode":"Oktober 2026","weekLabels":["W40","W41","W42","
     }, "change");
 
     pasang("s-channel", function (el) { sim.channel = el.value; drawSim(); }, "change");
+    pasang("s-minggu", function (el) { sim.minggu = Number(el.value) || NWEEK; drawSim(); }, "change");
     pasang("s-pl", function (el) { sim.pl = el.value; drawSim(); }, "change");
     pasang("s-tw", function (el) { sim.tw = el.value; drawSim(); }, "change");
     pasang("s-capai", function (el) { sim.capai = el.value === "ya"; drawSim(); }, "change");
