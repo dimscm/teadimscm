@@ -65,7 +65,8 @@
     aman: { teks: "Target tercapai — cashback aman", kelas: "good" },
     kurang: { teks: "Belum tercapai — sisa masih bisa dikejar", kelas: "warn" },
     gugur: { teks: "Omset masih di bawah strata terendah", kelas: "crit" },
-    nol: { teks: "Belum ada order — cashback hangus kalau dibiarkan", kelas: "crit" }
+    nol: { teks: "Belum ada order — cashback hangus kalau dibiarkan", kelas: "crit" },
+    retur: { teks: "Realisasi minus karena retur — omset harus ditutup dulu", kelas: "crit" }
   };
 
   function pct(a) {
@@ -412,6 +413,13 @@
       '<button class="close" id="d-close" aria-label="Tutup">✕</button>' +
       "<h2>" + esc(r.nama) + "</h2>" +
       '<div class="addr">' + esc(r.alamat || "-") + "</div>" + peta +
+      // Kolom ACT di file tidak sama dengan jumlah mingguannya: yang dipakai
+      // jumlah mingguan, dan sales perlu tahu angkanya berbeda dari file.
+      (r.koreksi
+        ? '<p class="note">Realisasi dikoreksi: kolom ACT di file <b>' + fmt(r.koreksi.act) +
+          "</b>, tapi jumlah mingguannya <b>" + fmt(r.koreksi.minggu) +
+          "</b>. Yang dipakai jumlah mingguan, dan cashback-nya dihitung ulang dari strata.</p>"
+        : "") +
       cb +
       '<div class="kv">' +
       kv("Produk", esc(r.produk)) +

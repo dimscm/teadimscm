@@ -291,6 +291,7 @@ def baca_sheet(ws, label, satuan, koordinat):
 
     hasil = []
     tanpa_sales = 0
+    daftar_koreksi = []
     for raw in rows[hdr + 1:]:
         if num(raw[kol["no"]]) is None or not rapikan(raw[kol["nama"]]):
             continue
@@ -316,20 +317,42 @@ def baca_sheet(ws, label, satuan, koordinat):
         a1 = num(raw[kol["act1"]]) if kol["act1"] is not None else None
         a2_ = num(raw[kol["act2"]]) if kol["act2"] is not None else None
         share = (a1 / (a1 + a2_)) if (a1 is not None and a2_ is not None and (a1 + a2_)) else 1.0
-        rate_tgt, zona_tgt_strata = tarif_di(
-            strata, rapikan(raw[kol["tipe"]]) if kol["tipe"] is not None else "",
-            tgt / len(WEEK_LABELS), share)
+        tipe_outlet = rapikan(raw[kol["tipe"]]) if kol["tipe"] is not None else ""
+        rate_tgt, zona_tgt_strata = tarif_di(strata, tipe_outlet, tgt / len(WEEK_LABELS), share)
         cb_tgt = round(tgt * rate_tgt)
+
+        # Kolom ACT di file pernah tidak sama dengan jumlah mingguannya sendiri
+        # (rumus satu baris melewatkan W40; ACT MIX kosong padahal ACT 1500 dan
+        # 330 terisi), sementara kolom ACH di baris yang sama memakai jumlah
+        # mingguan. Kalau begitu yang dipakai jumlah mingguan, dan cashback
+        # berjalan dihitung ulang dari strata — angka di file ikut salah.
+        koreksi = None
+        if k_minggu is not None:
+            jumlah = sum(w for w in weeks if w is not None)
+            if abs(jumlah - total) > 0.5:
+                koreksi = {"act": total, "minggu": round(jumlah, 2)}
+                total = jumlah
+                rate_now, zona_hitung = tarif_di(strata, tipe_outlet,
+                                                 total / len(WEEK_LABELS), share)
+                cb_now = round(total * rate_now)
+                if label == "Nipis Madu" and total < tgt:
+                    cb_now = 0
+                koreksi["zona"] = zona_hitung
+                daftar_koreksi.append((int(num(raw[kol["no"]])), rapikan(raw[kol["nama"]]),
+                                       koreksi["act"], koreksi["minggu"]))
 
         tgt_max = num(raw[kol["tgtMax"]]) if kol["tgtMax"] is not None else None
         if tgt_max is not None and max_per_minggu:
             tgt_max = round(tgt_max * len(WEEK_LABELS), 2)
 
         zona_now = rapikan(raw[kol["zona"]]) if kol["zona"] is not None else ""
+        if koreksi is not None:
+            zona_now = koreksi.pop("zona") or ""
         zona_tgt = rapikan(raw[kol["zonaTgt"]]) if kol["zonaTgt"] is not None else zona_tgt_strata
 
         tercapai = tgt > 0 and total >= tgt
         status = ("aman" if tercapai else
+                  "retur" if total < 0 else
                   "nol" if total <= 0 else
                   "gugur" if not cb_now and not tercapai and zona_now in ("", "-") else
                   "kurang")
@@ -359,6 +382,7 @@ def baca_sheet(ws, label, satuan, koordinat):
             # Komposisi ukuran utama (LM 1500+330), dipakai simulasi harga.
             "share": round(share, 4) if share != 1.0 else None,
             "history": riwayat(rows, hdr, raw),
+            "koreksi": koreksi,
             "cb": {
                 "tarif": round(rate_now or 0),
                 "tarifTgt": round(rate_tgt),
@@ -377,7 +401,24 @@ def baca_sheet(ws, label, satuan, koordinat):
             baris["lat"], baris["lng"] = titik
         hasil.append(baris)
 
+    for kode, nama, act, minggu in daftar_koreksi:
+        print(f"  ! {ws.title}: {kode} {nama} — ACT di file {act:,.0f}, "
+              f"jumlah mingguan {minggu:,.0f}; dipakai jumlah mingguan")
     return hasil, tanpa_sales, strata_web(strata), ukuran
+
+
+def simulasi_tersimpan():
+    """Data simulasi harga dari data.js yang sekarang, kalau ada."""
+    lama = ROOT / "data.js"
+    if not lama.exists():
+        return None
+    teks = lama.read_text(encoding="utf-8")
+    try:
+        awal = teks.index("=") + 1
+        akhir = teks.rstrip().rstrip(";").rfind("}") + 1
+        return json.loads(teks[awal:akhir]).get("simulasi")
+    except ValueError:
+        return None
 
 
 def main():
@@ -434,7 +475,16 @@ def main():
         bagian = [k for k in ("tph", "lm") if sim.get(k)]
         print(f"  simulasi harga: {', '.join(bagian)}")
     else:
-        print("  ! sheet simulasi harga tidak ada di workbook ini")
+        # Update mingguan sering dikirim tanpa sheet simulasi. Price list dan
+        # tabel program tidak berubah tiap minggu, jadi yang lama dipakai lagi
+        # supaya simulasi harga di web tidak ikut hilang.
+        lama = simulasi_tersimpan()
+        if lama:
+            lama["nweek"] = len(WEEK_LABELS)
+            data["simulasi"] = lama
+            print("  simulasi harga: tidak ada di workbook, dipakai yang tersimpan")
+        else:
+            print("  ! sheet simulasi harga tidak ada di workbook ini")
     out = ROOT / "data.js"
     out.write_text(
         "// Dibuat otomatis oleh tools/build_ikat.py — jangan diedit manual.\n"

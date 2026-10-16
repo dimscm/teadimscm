@@ -4,15 +4,27 @@ Tampilan web untuk workbook target bulanan. Tiap **sheet di Excel = satu
 produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
-Periode yang sedang tampil: **Oktober 2026 (W40–W43)** — 4 produk (LM 600,
-LM 1500+330, TPH, Nipis Madu) / 110 outlet, dari
-`target_oct_toko_dan_simulasi.xlsx`.
+Periode yang sedang tampil: **Oktober 2026 (W40–W43)**, realisasi sampai W42 —
+4 produk (LM 600, LM 1500+330, TPH, Nipis Madu) / 110 outlet, dari
+`target_ai_oct.xlsx`.
 
 > **Dua bentuk workbook, dua pembaca.** Sampai September file target berbentuk
 > "POTENSI ..." dan dibaca `tools/build_data.py`. Mulai Oktober bentuknya
 > "IKAT ..." — tiap sheet membawa tabel stratanya sendiri plus kolom zona,
 > rate, dan cashback yang sudah dihitung kantor — dan dibaca
 > `tools/build_ikat.py`. Keduanya menghasilkan `data.js` yang sama bentuknya.
+
+> **Kolom ACT dicocokkan dengan jumlah mingguannya.** Di file Oktober ada
+> baris yang kolom ACT-nya tidak sama dengan W40–W43 di baris yang sama
+> (rumus melewatkan W40; ACT MIX kosong padahal ACT 1500 dan 330 terisi),
+> sementara kolom ACH % di baris itu memakai jumlah mingguan. Kalau begitu,
+> pembaca memakai jumlah mingguan, menghitung ulang cashback berjalan dari
+> strata, mencetak peringatan saat build, dan panel outlet menampilkan
+> catatan koreksinya. Realisasi minus (retur) diberi status sendiri.
+>
+> **Sheet simulasi boleh tidak ikut.** Update mingguan yang hanya berisi
+> sheet IKAT tetap memakai price list dan tabel program dari build
+> sebelumnya, karena itu tidak berubah tiap minggu.
 
 > **Galon 15L tidak ada di file Oktober**, jadi produk itu hilang dari web.
 > Kalau programnya jalan, file targetnya perlu dikirim terpisah.
@@ -241,7 +253,7 @@ beres.
 ## Memperbarui data
 
 ```bash
-python3 web/tools/build_ikat.py target_oct_toko_dan_simulasi.xlsx   # bentuk "IKAT"
+python3 web/tools/build_ikat.py target_ai_oct.xlsx   # bentuk "IKAT"
 python3 web/tools/build_single.py                      # tulis ulang dist/ + docs/
 ```
 
