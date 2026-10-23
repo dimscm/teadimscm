@@ -4,9 +4,9 @@ Tampilan web untuk workbook target bulanan. Tiap **sheet di Excel = satu
 produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
-Periode yang sedang tampil: **Oktober 2026 (W40–W43)**, realisasi sampai W42 —
-4 produk (LM 600, LM 1500+330, TPH, Nipis Madu) / 110 outlet, dari
-`target_ai_oct.xlsx`.
+Periode yang sedang tampil: **Oktober 2026 (W40–W43)**, realisasi sampai
+W43 berjalan — 5 produk (LM 600, LM 1500+330, TPH, Nipis Madu, Galon 15L) /
+142 baris, dari `TARGET_OCT_23.xlsx`.
 
 > **Dua bentuk workbook, dua pembaca.** Sampai September file target berbentuk
 > "POTENSI ..." dan dibaca `tools/build_data.py`. Mulai Oktober bentuknya
@@ -14,6 +14,15 @@ Periode yang sedang tampil: **Oktober 2026 (W40–W43)**, realisasi sampai W42 �
 > rate, dan cashback yang sudah dihitung kantor — dan dibaca
 > `tools/build_ikat.py`. Keduanya menghasilkan `data.js` yang sama bentuknya.
 
+> **Cashback dihitung ulang tiap build.** Tiap baris dihitung dari strata
+> dengan aturan programnya — Nipis Madu hanya kalau target tercapai; LM gugur
+> kalau turun lebih dari dua zona dari zona final (turun 1–2 tetap dibayar,
+> turun 3 gugur); TPH mengikuti volume. Kalau hasilnya berbeda dari kolom
+> cashback di file, yang dipakai hasil hitungan, build mencetak peringatan,
+> dan panel outlet menampilkan kedua angkanya. Model ini mereproduksi seluruh
+> 110 baris file 16 Oktober persis; di file 23 Oktober 27 baris dikoreksi
+> karena kolom zona/tarif/cashback-nya masih angka minggu sebelumnya.
+>
 > **Kolom ACT dicocokkan dengan jumlah mingguannya.** Di file Oktober ada
 > baris yang kolom ACT-nya tidak sama dengan W40–W43 di baris yang sama
 > (rumus melewatkan W40; ACT MIX kosong padahal ACT 1500 dan 330 terisi),
@@ -26,8 +35,14 @@ Periode yang sedang tampil: **Oktober 2026 (W40–W43)**, realisasi sampai W42 �
 > sheet IKAT tetap memakai price list dan tabel program dari build
 > sebelumnya, karena itu tidak berubah tiap minggu.
 
-> **Galon 15L tidak ada di file Oktober**, jadi produk itu hilang dari web.
-> Kalau programnya jalan, file targetnya perlu dikirim terpisah.
+> **Galon 15L dibaca dari sheet monitoring** ("SO GALON OKT", "GRM GALON
+> OKT") lewat `tools/galon.py`. Sheet itu tidak punya kolom salesman, jadi
+> salesman tiap outlet diambil dari `salesman_outlet.json` — disusun dari
+> seluruh riwayat data dan diperbarui tiap build dari sheet IKAT. Outlet yang
+> tidak dikenal dilewati dan dilaporkan per subdist. Tabel stratanya dibaca
+> dari kalimat di kepala sheet ("~1.500 – 4.999 GALLON MENDAPAT DISC RP.
+> 300,-"); ambangnya per bulan, jadi tidak ikut jumlah minggu. Tingkatnya
+> tidak berhuruf, di web dinamai T1 (terendah) sampai T6.
 
 > Hanya baris yang **ada nama salesman**-nya yang diambil; baris tanpa
 > salesman dilewati dan jumlahnya dilaporkan saat build.
@@ -253,7 +268,7 @@ beres.
 ## Memperbarui data
 
 ```bash
-python3 web/tools/build_ikat.py target_ai_oct.xlsx   # bentuk "IKAT"
+python3 web/tools/build_ikat.py TARGET_OCT_23.xlsx   # bentuk "IKAT" (+ sheet galon)
 python3 web/tools/build_single.py                      # tulis ulang dist/ + docs/
 ```
 
@@ -282,6 +297,8 @@ hilang saat daftar outlet berubah tiap bulan.
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
 | `tools/build_ikat.py` | workbook "IKAT" (Oktober dst) → `data.js` |
 | `tools/simulasi.py` | sheet "SIMULASI NETT ..." → price list, DOF, bonus |
+| `tools/galon.py` | sheet monitoring galon → produk Galon 15L |
+| `salesman_outlet.json` | salesman tiap outlet, untuk sheet tanpa kolom salesman |
 | `tools/uji_simulasi.py` | uji simulasi web terhadap contoh di sheet simulasi |
 | `tools/build_data.py` | workbook "POTENSI" (sampai September) → `data.js` |
 | `koordinat.json` | koordinat outlet, lepas dari data bulanan |

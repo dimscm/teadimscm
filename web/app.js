@@ -29,7 +29,7 @@
       r.cari = (r.nama + " " + r.no + " " + r.alamat + " " + r.sales + " " +
         r.wilayah + " " + (r.tipe || "") + " " + (r.ket || "") + " " +
         (r.channel || "") + " " + (r.kecamatan || "") + " " +
-        (r.kelurahan || "")).toLowerCase();
+        (r.kelurahan || "") + " " + (r.subdist || "")).toLowerCase();
       ROWS.push(r);
     });
   });
@@ -358,6 +358,7 @@
       extra += '<div><div class="k">ACH vs maks</div><div class="v"><span class="pill ' +
         achClass(r.achMx) + '">' + pct(r.achMx) + "</span></div></div>";
     }
+    if (r.subdist) extra += kv("Subdist", esc(r.subdist));
     if (r.kecamatan) extra += kv("Kecamatan", esc(r.kecamatan));
     if (r.kelurahan) extra += kv("Kelurahan", esc(r.kelurahan));
     if (r.tipe) extra += kv("Tipe outlet", esc(r.tipe));
@@ -415,11 +416,7 @@
       '<div class="addr">' + esc(r.alamat || "-") + "</div>" + peta +
       // Kolom ACT di file tidak sama dengan jumlah mingguannya: yang dipakai
       // jumlah mingguan, dan sales perlu tahu angkanya berbeda dari file.
-      (r.koreksi
-        ? '<p class="note">Realisasi dikoreksi: kolom ACT di file <b>' + fmt(r.koreksi.act) +
-          "</b>, tapi jumlah mingguannya <b>" + fmt(r.koreksi.minggu) +
-          "</b>. Yang dipakai jumlah mingguan, dan cashback-nya dihitung ulang dari strata.</p>"
-        : "") +
+      catatanKoreksi(r.koreksi) +
       cb +
       '<div class="kv">' +
       kv("Produk", esc(r.produk)) +
@@ -442,6 +439,18 @@
     document.body.style.overflow = "hidden";
     $("#d-close").focus();
     $("#d-close").addEventListener("click", closeDetail);
+  }
+
+  /* Angka di file yang tidak dipakai apa adanya, dan alasannya. */
+  function catatanKoreksi(k) {
+    if (!k) return "";
+    var teks = k.jenis === "cashback"
+      ? "Cashback di file <b>" + rp(k.cbFile) + "</b> belum ikut realisasi terbaru (zona dan" +
+        " tarifnya masih angka minggu lalu). Dihitung ulang dari strata: <b>" + rp(k.cbModel) + "</b>."
+      : "Realisasi dikoreksi: kolom ACT di file <b>" + fmt(k.act) + "</b>, tapi jumlah mingguannya <b>" +
+        fmt(k.minggu) + "</b>. Yang dipakai jumlah mingguan, dan cashback-nya dihitung ulang dari strata.";
+    if (k.aturan) teks += " Aturan yang berlaku: " + esc(k.aturan) + ".";
+    return '<p class="note">' + teks + "</p>";
   }
 
   function hist2(k, v) {
@@ -557,6 +566,10 @@
   }
 
   function skalaMinggu(wk) {
+    // Ambang galon ditulis per bulan (tabel yang sama di bulan 4 dan 5
+    // minggu), jadi tidak ikut diskalakan.
+    var p = produkSim();
+    if (p && p.strataTetap) return 1;
     return (wk || minggu()) / NWEEK;
   }
 
@@ -798,7 +811,7 @@
     var syaratAch = p.rows.length && p.rows[0].cb && p.rows[0].cb.syaratAch;
     var tgtBulan = sim.mode === "triwulan" ? sim.tgt * wk : sim.tgt;
     if (syaratAch && tgtBulan > 0 && q1 < tgtBulan) tarif = 0;
-    return { qty: q1, zona: tarif ? band.zona : "", cbCrt: tarif, cashback: q1 * tarif,
+    return { qty: q1, zona: tarif ? namaZona(bands, band) : "", cbCrt: tarif, cashback: q1 * tarif,
       bonus: 0, benefit: q1 * tarif,
       sku: [{ label: "", faktur: hrg.crt, akhir: hrg.crt ? hrg.crt - tarif : 0 }] };
   }
@@ -806,6 +819,9 @@
   /* ── Mode triwulan: tiga bulan dijumlahkan ─────────────────────────── */
   function hasilTriwulan(p, jenis) {
     var tw = triwulan();
+    var sat = " " + (p.satuan || "crt");
+    // Harga yang belum diisi (produk tanpa sheet harga) ditulis "–", bukan Rp 0.
+    var rpAtau = function (v) { return v ? rp(v) : "–"; };
     var bulan = [0, 1, 2].map(function (k) {
       var wk = sim.wk[k];
       return {
@@ -824,8 +840,8 @@
     });
 
     var kartu =
-      besar("Qty triwulan", fmt(tot.qty) + " crt", tot.minggu + " minggu · " +
-        fmt(sim.q1 + sim.q2) + " crt/minggu") +
+      besar("Qty triwulan", fmt(tot.qty) + sat, tot.minggu + " minggu · " +
+        fmt(sim.q1 + sim.q2) + sat + "/minggu") +
       besar("Cashback triwulan", rp(tot.cashback), "cair tiap bulan berikutnya") +
       besar(jenis === "tph" ? "Bonus produk" : "Bonus triwulan", rp(tot.bonus),
         jenis === "tph" ? "nilai bonus TPH 350 tiap bulan"
@@ -844,25 +860,25 @@
     var body = bulan.map(function (b) {
       return '<div class="lad' + (tw.ini === bulan.indexOf(b) ? " on" : "") + '">' +
         "<div>" + esc(b.nama) + '<div class="sub2">' + b.wk + " minggu</div></div>" +
-        '<div class="r num"><span class="mlabel">Qty </span>' + fmt(b.h.qty) + " crt</div>" +
+        '<div class="r num"><span class="mlabel">Qty </span>' + fmt(b.h.qty) + sat + "</div>" +
         '<div class="r"><span class="mlabel">Zona </span><span class="pill ' +
         (b.h.zona ? "good" : "none") + '">' + esc(b.h.zona || "–") + "</span></div>" +
         b.h.sku.map(function (s2) {
           return '<div class="r num"><span class="mlabel">' + esc(("Faktur " + s2.label).trim()) +
-            " </span>" + rp(s2.faktur) + "</div>";
+            " </span>" + rpAtau(s2.faktur) + "</div>";
         }).join("") +
         '<div class="r num"><span class="mlabel">Cashback </span>' + rp(b.h.cashback) +
         '<div class="sub2">cair ' + esc(b.cair) + "</div></div>" +
         '<div class="r num"><span class="mlabel">Bonus </span>' + rp(b.h.bonus) + "</div>" +
         b.h.sku.map(function (s2) {
           return '<div class="r num"><span class="mlabel">' + esc(("Nett " + s2.label).trim()) +
-            " </span>" + rp(s2.akhir) + "</div>";
+            " </span>" + rpAtau(s2.akhir) + "</div>";
         }).join("") +
         "</div>";
     }).join("");
 
     var totalRow = '<div class="lad tot"><div>TRIWULAN</div>' +
-      '<div class="r num"><span class="mlabel">Qty </span>' + fmt(tot.qty) + " crt</div>" +
+      '<div class="r num"><span class="mlabel">Qty </span>' + fmt(tot.qty) + sat + "</div>" +
       '<div class="r">–</div>' +
       kolomSku.map(function () { return '<div class="r">–</div>'; }).join("") +
       '<div class="r num"><span class="mlabel">Cashback </span>' + rp(tot.cashback) + "</div>" +
@@ -1307,6 +1323,11 @@
     return '<div class="sec">Ikat target · zona per minggu</div><div class="tbl">' + head + body + "</div>";
   }
 
+  /* Tabel galon tidak punya huruf zona; tingkatnya dinamai T1 (terendah) dst. */
+  function namaZona(bands, b) {
+    return b.zona || "T" + (bands.length - bands.indexOf(b));
+  }
+
   /* ── Simulasi sederhana untuk produk tanpa sheet harga ─────────────── */
   function tarifPada(bands, vol, share) {
     var skala = skalaMinggu();
@@ -1316,7 +1337,7 @@
         var rate = (b.rate2 === null || b.rate2 === undefined)
           ? b.rate
           : b.rate * share + b.rate2 * (1 - share);
-        return { rate: rate, zona: b.zona, min: b.min * skala };
+        return { rate: rate, zona: namaZona(bands, b), min: b.min * skala };
       }
     }
     return { rate: 0, zona: "", min: 0 };
@@ -1360,7 +1381,7 @@
       var rNaik = tarifPada(bands, minNaik, sim.share).rate;
       var cbNaik = Math.round(minNaik * rNaik);
       hint = '<div class="sim-hint"><b>Tambah ' + fmt(minNaik - vol) + " " + esc(satuan) +
-        "</b> lagi (jadi " + fmt(minNaik) + ") → zona " + esc(naik.zona) + ", tarif " +
+        "</b> lagi (jadi " + fmt(minNaik) + ") → zona " + esc(namaZona(bands, naik)) + ", tarif " +
         rp(rNaik) + " /" + esc(satuan) + ". Total cashback " + rp(cbNaik) +
         " (naik " + rp(cbNaik - cb) + ")" +
         (h.crt ? ", harga nett " + rp(h.crt - rNaik) + " /" + esc(satuan) : "") +
@@ -1375,12 +1396,13 @@
     var ladBody = bands.slice().reverse().map(function (b) {
       var minB = minBulan(b);
       var r2 = tarifPada(bands, minB, sim.share).rate;
-      var aktif = b.zona === kini.zona && !gugurAch;
+      var zb = namaZona(bands, b);
+      var aktif = zb === kini.zona && !gugurAch;
       var selisih = minB - vol;
       return '<div class="lad' + (aktif ? " on" : "") + '">' +
-        '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(b.zona || "–") + "</span></div>" +
+        '<div><span class="pill ' + (aktif ? "good" : "none") + '">' + esc(zb) + "</span></div>" +
         '<div class="r num"><span class="mlabel">Minimal </span>' + fmt(minB) + " " + esc(satuan) +
-        '<div class="sub2">' + fmt(b.min / NWEEK) + " /minggu</div></div>" +
+        (p.strataTetap ? "</div>" : '<div class="sub2">' + fmt(b.min / NWEEK) + " /minggu</div></div>") +
         '<div class="r num"><span class="mlabel">Tarif </span>' + rp(r2) + "</div>" +
         '<div class="r num"><span class="mlabel">Nett </span>' + (h.crt ? rp(h.crt - r2) : "–") + "</div>" +
         '<div class="r num"><span class="mlabel">Selisih </span>' +

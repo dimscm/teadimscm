@@ -26,6 +26,7 @@ from pathlib import Path
 import openpyxl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import galon  # noqa: E402
 import simulasi  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -233,6 +234,40 @@ def tarif_di(strata, tipe_outlet, per_minggu, share_utama=1.0):
     return 0, ""
 
 
+# LM tetap membayar meski realisasi turun beberapa zona dari zona final SPK;
+# yang menggugurkan adalah turun LEBIH dari dua tingkat. Batasnya dari data:
+# form September membayar turun 1 dan 2, sheet Oktober menggugurkan turun 3
+# (kolom ZONA ACT 'E' tapi ZONA CASHBACK '-').
+MAKS_TURUN_ZONA = 2
+
+
+def peringkat_zona(strata, tipe_outlet, zona):
+    """Urutan zona dari tabel strata itu sendiri: terendah = 1."""
+    tabel = strata.get((tipe_outlet or "").upper()) or strata.get("") or []
+    urut = [z for _, z, _, _ in sorted(tabel)]  # dari ambang terkecil
+    return urut.index(zona) + 1 if zona in urut else None
+
+
+def cashback_model(label, strata, tipe_outlet, total, tgt, share, zona_final):
+    """Cashback berjalan menurut aturan program, dari realisasi saat ini.
+
+    Kembalikan (tarif /crt, zona, cashback, catatan aturan yang berlaku).
+    """
+    if total <= 0:
+        return 0, "", 0, ""
+    rate, zona = tarif_di(strata, tipe_outlet, total / len(WEEK_LABELS), share)
+    if not rate:
+        return 0, "", 0, ""
+    if label == "Nipis Madu" and total < tgt:
+        return 0, zona, 0, "Nipis Madu hanya dibayar kalau target tercapai"
+    if label.startswith("LM") and zona_final:
+        atas = peringkat_zona(strata, tipe_outlet, zona_final)
+        kini = peringkat_zona(strata, tipe_outlet, zona)
+        if atas and kini and atas - kini > MAKS_TURUN_ZONA:
+            return 0, "", 0, f"turun {atas - kini} zona dari zona final {zona_final}, gugur"
+    return rate, zona, round(total * rate), ""
+
+
 def label_produk(nama_sheet):
     atas = nama_sheet.upper()
     for potongan, label, satuan in PRODUK:
@@ -255,6 +290,43 @@ def riwayat(rows, hdr, raw):
             items.append({"k": label or str(k - j + 1), "v": num(raw[k])})
         blok.append({"title": judul, "items": items})
     return blok
+
+
+SALES_OUTLET = ROOT / "salesman_outlet.json"
+# 'M3-T-TOB01 AHMAD' / 'M3-TA11 ANDI' -> kode salesman TOB01 / TA11.
+KODE_SALES = re.compile(r"M3-(?:T-)?([A-Z]+\d+)")
+
+
+def salesman_tersimpan():
+    """Salesman tiap outlet dari seluruh riwayat data (kode -> sales, rayon).
+
+    Dipakai sheet yang tidak punya kolom salesman, seperti monitoring galon.
+    """
+    if not SALES_OUTLET.exists():
+        return {}
+    isi = json.loads(SALES_OUTLET.read_text(encoding="utf-8"))
+    return {int(k): v for k, v in isi.items()}
+
+
+def perbarui_salesman(peta, products):
+    """Penugasan di sheet IKAT bulan ini menang atas riwayat, dan nama
+    salesman lama diseragamkan ke penulisan sekarang lewat kodenya (TOB01,
+    TA11, ...) — September menulis 'M3-TOB01 ...', Oktober 'M3-T-TOB01 ...'."""
+    kini = {}
+    for p in products:
+        for r in p["rows"]:
+            peta[int(r["no"])] = {"sales": r["sales"], "rayon": r["wilayah"]}
+            kode = KODE_SALES.search(r["sales"])
+            if kode:
+                kini[kode.group(1)] = r["sales"]
+    for e in peta.values():
+        kode = KODE_SALES.search(e["sales"])
+        if kode and kode.group(1) in kini:
+            e["sales"] = kini[kode.group(1)]
+    SALES_OUTLET.write_text(
+        json.dumps({str(k): v for k, v in sorted(peta.items())}, ensure_ascii=False, indent=1),
+        encoding="utf-8")
+    return peta
 
 
 KOORDINAT = ROOT / "koordinat.json"
@@ -327,27 +399,42 @@ def baca_sheet(ws, label, satuan, koordinat):
         # mingguan. Kalau begitu yang dipakai jumlah mingguan, dan cashback
         # berjalan dihitung ulang dari strata — angka di file ikut salah.
         koreksi = None
+        kode_outlet = int(num(raw[kol["no"]]))
+        nama_outlet = rapikan(raw[kol["nama"]])
         if k_minggu is not None:
             jumlah = sum(w for w in weeks if w is not None)
             if abs(jumlah - total) > 0.5:
-                koreksi = {"act": total, "minggu": round(jumlah, 2)}
+                koreksi = {"jenis": "act", "act": total, "minggu": round(jumlah, 2)}
                 total = jumlah
-                rate_now, zona_hitung = tarif_di(strata, tipe_outlet,
-                                                 total / len(WEEK_LABELS), share)
-                cb_now = round(total * rate_now)
-                if label == "Nipis Madu" and total < tgt:
-                    cb_now = 0
-                koreksi["zona"] = zona_hitung
-                daftar_koreksi.append((int(num(raw[kol["no"]])), rapikan(raw[kol["nama"]]),
-                                       koreksi["act"], koreksi["minggu"]))
+                daftar_koreksi.append(f"{kode_outlet} {nama_outlet} — ACT di file {koreksi['act']:,.0f}, "
+                                      f"jumlah mingguan {jumlah:,.0f}; dipakai jumlah mingguan")
+
+        # Kolom zona, tarif, dan cashback di file pernah tidak ikut dihitung
+        # ulang setelah realisasi minggu baru masuk (masih angka minggu lalu),
+        # padahal ACT dan ACH-nya sudah baru. Tiap baris karena itu dihitung
+        # ulang dari strata dengan aturan programnya; kalau berbeda dari file,
+        # hasil hitungan yang dipakai dan barisnya ditandai.
+        zona_final = rapikan(raw[kol["zonaTgt"]]) if kol["zonaTgt"] is not None else ""
+        rate_m, zona_m, cb_m, aturan = cashback_model(
+            label, strata, tipe_outlet, total, tgt, share, zona_final)
+        zona_hitung = None
+        if strata and (koreksi or abs((cb_now or 0) - cb_m) > max(2, cb_m * 0.002)):
+            if koreksi is None:
+                koreksi = {"jenis": "cashback", "cbFile": round(cb_now or 0), "cbModel": cb_m}
+                daftar_koreksi.append(f"{kode_outlet} {nama_outlet} — cashback di file "
+                                      f"Rp {cb_now or 0:,.0f}, hitungan Rp {cb_m:,.0f} "
+                                      f"(realisasi {total:,.0f}{', ' + aturan if aturan else ''})")
+            if aturan:
+                koreksi["aturan"] = aturan
+            rate_now, cb_now, zona_hitung = rate_m, cb_m, zona_m
 
         tgt_max = num(raw[kol["tgtMax"]]) if kol["tgtMax"] is not None else None
         if tgt_max is not None and max_per_minggu:
             tgt_max = round(tgt_max * len(WEEK_LABELS), 2)
 
         zona_now = rapikan(raw[kol["zona"]]) if kol["zona"] is not None else ""
-        if koreksi is not None:
-            zona_now = koreksi.pop("zona") or ""
+        if zona_hitung is not None:
+            zona_now = zona_hitung
         zona_tgt = rapikan(raw[kol["zonaTgt"]]) if kol["zonaTgt"] is not None else zona_tgt_strata
 
         tercapai = tgt > 0 and total >= tgt
@@ -401,9 +488,8 @@ def baca_sheet(ws, label, satuan, koordinat):
             baris["lat"], baris["lng"] = titik
         hasil.append(baris)
 
-    for kode, nama, act, minggu in daftar_koreksi:
-        print(f"  ! {ws.title}: {kode} {nama} — ACT di file {act:,.0f}, "
-              f"jumlah mingguan {minggu:,.0f}; dipakai jumlah mingguan")
+    for teks in daftar_koreksi:
+        print(f"  ! {ws.title}: {teks}")
     return hasil, tanpa_sales, strata_web(strata), ukuran
 
 
@@ -434,9 +520,13 @@ def main():
         print(f"  koordinat tersimpan: {len(koordinat)} outlet")
 
     products = []
+    sheet_galon = []
     for ws in wb.worksheets:
         if simulasi.sheet_simulasi(ws.title):
             continue  # dibaca terpisah di bawah
+        if galon.sheet_galon(ws.title):
+            sheet_galon.append(ws)  # bentuknya lain, dibaca setelah IKAT
+            continue
         label, satuan = label_produk(ws.title)
         if label is None:
             print(f"  ! sheet '{ws.title}' dilewati (produknya tidak dikenali)")
@@ -457,6 +547,21 @@ def main():
         })
         catatan = f"  (+{tanpa} tanpa salesman, dilewati)" if tanpa else ""
         print(f"  {label:<14} {len(rows):>4} outlet{catatan}")
+
+    peta_sales = perbarui_salesman(salesman_tersimpan(), products)
+
+    if sheet_galon:
+        prod, lap = galon.baca(sheet_galon, WEEK_LABELS, peta_sales, koordinat)
+        lewat = sum(lap["lewat"].values())
+        if prod:
+            products.append(prod)
+            print(f"  {'Galon 15L':<14} {len(prod['rows']):>4} outlet  (+{lewat} tanpa salesman, dilewati)")
+        for subdist, jml in sorted(lap["lewat"].items()):
+            print(f"      dilewati {jml:>3} outlet {subdist}")
+        cek = lap["cek"]
+        print(f"      tarif tercetak vs strata: cocok {cek['cocok']}, beda {len(cek['beda'])}")
+        for kode, nama, total, rate, model in cek["beda"]:
+            print(f"      ! {kode} {nama}: {total:,.0f} galon, file Rp {rate:,.0f}, strata Rp {model:,.0f}")
 
     data = {
         "periode": PERIODE,
