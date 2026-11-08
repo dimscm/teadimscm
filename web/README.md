@@ -4,9 +4,21 @@ Tampilan web untuk workbook target bulanan. Tiap **sheet di Excel = satu
 produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
-Periode yang sedang tampil: **Oktober 2026 (W40–W43)**, realisasi sampai
-W43 berjalan — 5 produk (LM 600, LM 1500+330, TPH, Nipis Madu, Galon 15L) /
-142 baris, dari `TARGET_OCT_23.xlsx`.
+Periode yang sedang tampil: **November 2026 (W44–W47)**, realisasi sampai
+W45 berjalan — 5 produk (LM 600, LM 1500+330, TPH, Nipis Madu, Galon 15L) /
+122 outlet, dari form monitoring resmi
+`MONITORING_IKAT_TARGET_Q4._JAKTIM_DAN_BEKASI_2026_W44.xlsx`.
+
+> **Tiga bentuk workbook, tiga pembaca.** Sampai September: "POTENSI ..."
+> (`tools/build_data.py`). Oktober: sheet "IKAT ..." (`tools/build_ikat.py`).
+> Mulai November: form monitoring resmi kantor
+> (`tools/build_monitoring.py`) — satu workbook Jaktim + Bekasi, beberapa
+> bulan berdampingan di tiap sheet (bulan yang dipakai dipilih otomatis:
+> yang terbaru yang mingguannya sudah terisi), TPH dan Nipis Madu dipecah
+> dua sheet yang digabung jadi satu produk, dan tanpa kolom salesman.
+> Ketiganya menghasilkan `data.js` yang sama bentuknya. Di form monitoring
+> cashback kantor dicocokkan dengan model tiap build; per W44 seluruh 353
+> outlet di file cocok.
 
 > **Dua bentuk workbook, dua pembaca.** Sampai September file target berbentuk
 > "POTENSI ..." dan dibaca `tools/build_data.py`. Mulai Oktober bentuknya
@@ -15,9 +27,13 @@ W43 berjalan — 5 produk (LM 600, LM 1500+330, TPH, Nipis Madu, Galon 15L) /
 > `tools/build_ikat.py`. Keduanya menghasilkan `data.js` yang sama bentuknya.
 
 > **Cashback dihitung ulang tiap build.** Tiap baris dihitung dari strata
-> dengan aturan programnya — Nipis Madu hanya kalau target tercapai; LM gugur
-> kalau turun lebih dari dua zona dari zona final (turun 1–2 tetap dibayar,
-> turun 3 gugur); TPH mengikuti volume. Kalau hasilnya berbeda dari kolom
+> dengan aturan programnya — Nipis Madu hanya kalau target tercapai; TPH
+> mengikuti volume; LM gugur kalau turun terlalu jauh dari zona SPK. Batas
+> turun zona LM di program Q4 **berbeda antar sheet** di form monitoring
+> kantor: LM 600 gugur sejak turun 2, LM 1500+330 baru gugur di turun 3
+> (outlet AGEN JJ turun 2 di keduanya: gugur di LM 600, dibayar di LM
+> 1500+330). Web mengikuti kantor; belum dikonfirmasi mana yang sesuai surat
+> program. Kalau hasilnya berbeda dari kolom
 > cashback di file, yang dipakai hasil hitungan, build mencetak peringatan,
 > dan panel outlet menampilkan kedua angkanya. Model ini mereproduksi seluruh
 > 110 baris file 16 Oktober persis; di file 23 Oktober 27 baris dikoreksi
@@ -268,6 +284,7 @@ beres.
 ## Memperbarui data
 
 ```bash
+python3 web/tools/build_monitoring.py MONITORING_IKAT_TARGET_Q4....xlsx   # form monitoring resmi
 python3 web/tools/build_ikat.py TARGET_OCT_23.xlsx   # bentuk "IKAT" (+ sheet galon)
 python3 web/tools/build_single.py                      # tulis ulang dist/ + docs/
 ```
@@ -295,7 +312,8 @@ hilang saat daftar outlet berubah tiap bulan.
 | `styles.css` | tampilan, termasuk mode gelap dan tata letak HP |
 | `app.js` | filter, pencarian, rekap, panel detail, ekspor CSV |
 | `data.js` | data hasil ekspor Excel (dibuat otomatis) |
-| `tools/build_ikat.py` | workbook "IKAT" (Oktober dst) → `data.js` |
+| `tools/build_monitoring.py` | form monitoring resmi (November dst) → `data.js` |
+| `tools/build_ikat.py` | workbook "IKAT" (Oktober) → `data.js` |
 | `tools/simulasi.py` | sheet "SIMULASI NETT ..." → price list, DOF, bonus |
 | `tools/galon.py` | sheet monitoring galon → produk Galon 15L |
 | `salesman_outlet.json` | salesman tiap outlet, untuk sheet tanpa kolom salesman |

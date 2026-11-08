@@ -234,11 +234,16 @@ def tarif_di(strata, tipe_outlet, per_minggu, share_utama=1.0):
     return 0, ""
 
 
-# LM tetap membayar meski realisasi turun beberapa zona dari zona final SPK;
-# yang menggugurkan adalah turun LEBIH dari dua tingkat. Batasnya dari data:
-# form September membayar turun 1 dan 2, sheet Oktober menggugurkan turun 3
-# (kolom ZONA ACT 'E' tapi ZONA CASHBACK '-').
-MAKS_TURUN_ZONA = 2
+# Berapa zona boleh turun dari zona SPK sebelum cashback LM gugur. Batasnya
+# dari form monitoring resmi November (program Q4), dan kedua sheet LM-nya
+# BERBEDA:
+#   LM 600       turun 1 dibayar, turun 2 GUGUR (TIRTA JAYA A→C, AGEN JJ C→E)
+#   LM 1500+330  turun 2 masih dibayar (RIFAI AGEN, LARNO, BINTANG TIMUR,
+#                AGEN JJ), turun 3 gugur (CV ARSYIKA)
+# AGEN JJ ada di keduanya dan diperlakukan berbeda, jadi ini bisa beda surat
+# program (9046 vs 9047) atau salah rumus di salah satu sheet — belum
+# dikonfirmasi. Web mengikuti hitungan kantor. Program Q3 lihat cashback.py.
+MAKS_TURUN_ZONA = {"LM 600": 1, "LM 1500+330": 2}
 
 
 def peringkat_zona(strata, tipe_outlet, zona):
@@ -248,14 +253,14 @@ def peringkat_zona(strata, tipe_outlet, zona):
     return urut.index(zona) + 1 if zona in urut else None
 
 
-def cashback_model(label, strata, tipe_outlet, total, tgt, share, zona_final):
+def cashback_model(label, strata, tipe_outlet, total, tgt, share, zona_final, minggu=None):
     """Cashback berjalan menurut aturan program, dari realisasi saat ini.
 
     Kembalikan (tarif /crt, zona, cashback, catatan aturan yang berlaku).
     """
     if total <= 0:
         return 0, "", 0, ""
-    rate, zona = tarif_di(strata, tipe_outlet, total / len(WEEK_LABELS), share)
+    rate, zona = tarif_di(strata, tipe_outlet, total / (minggu or len(WEEK_LABELS)), share)
     if not rate:
         return 0, "", 0, ""
     if label == "Nipis Madu" and total < tgt:
@@ -263,7 +268,7 @@ def cashback_model(label, strata, tipe_outlet, total, tgt, share, zona_final):
     if label.startswith("LM") and zona_final:
         atas = peringkat_zona(strata, tipe_outlet, zona_final)
         kini = peringkat_zona(strata, tipe_outlet, zona)
-        if atas and kini and atas - kini > MAKS_TURUN_ZONA:
+        if atas and kini and atas - kini > MAKS_TURUN_ZONA.get(label, 1):
             return 0, "", 0, f"turun {atas - kini} zona dari zona final {zona_final}, gugur"
     return rate, zona, round(total * rate), ""
 
