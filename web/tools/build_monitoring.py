@@ -160,6 +160,21 @@ def strata_tersimpan():
     return hasil
 
 
+def kolom_program(rows, hdr, atas):
+    """Kolom KETERANGAN yang berisi status program (FIX IKAT TARGET / POTENSI).
+
+    Judulnya sama dengan kolom keterangan zona di tiap blok bulan, jadi
+    dikenali dari isinya, bukan dari judulnya.
+    """
+    for j, t in enumerate(atas):
+        if t != "KETERANGAN":
+            continue
+        isi = [k(r[j]) for r in rows[hdr + 1:] if j < len(r) and r[j]]
+        if isi and all(v.startswith(("FIX", "POTENSI")) for v in isi):
+            return j
+    return None
+
+
 def riwayat(rows, hdr, atas, bawah, raw, bulan_ini):
     """Omset kuartal lalu dan bulan-bulan sebelumnya di sheet yang sama."""
     blok = []
@@ -209,6 +224,7 @@ def baca_sheet(ws, label, satuan, bulan, tahun, minggu, peta_sales, koordinat, s
                    and "ML" not in t)
     c_rate = di_blok(lambda t: t == "CASHBACK (RP)/CRT")
     c_ket = di_blok(lambda t: t == "KETERANGAN")
+    c_program = kolom_program(rows, hdr, atas)
     c_zona_act = di_blok(lambda t: t.startswith("ZONA FINAL"))
     c_mix = di_blok(lambda t: t.startswith("TOTAL LM"))
 
@@ -253,8 +269,9 @@ def baca_sheet(ws, label, satuan, bulan, tahun, minggu, peta_sales, koordinat, s
         # dipakai dan barisnya ditandai (lihat README: cashback dihitung ulang).
         koreksi = None
         cb_now, rate_now, zona_now = cb_m, rate_m, zona_m
-        if cb_file is not None and abs(cb_file - cb_m) <= max(2, cb_m * 0.002):
-            cb_now = cb_file
+        # Sel kosong di file berarti 0 (outlet POTENSI tanpa omset dibiarkan kosong).
+        if abs((cb_file or 0) - cb_m) <= max(2, cb_m * 0.002):
+            cb_now = cb_file or 0
             if rate_file:
                 rate_now = rate_file
         elif tabel:
@@ -274,7 +291,15 @@ def baca_sheet(ws, label, satuan, bulan, tahun, minggu, peta_sales, koordinat, s
                   "nol" if total <= 0 else
                   "gugur" if not cb_now and zona_now in ("", "-") else
                   "kurang")
-        ket = k(raw[c_ket]) if c_ket is not None else ""
+        # Dua "keterangan" berbeda: status program outlet (FIX IKAT TARGET
+        # MASTER/TAMBAHAN atau POTENSI, ditambahkan di kolom paling kanan) dan
+        # status zona bulan ini dari kantor (TURUN ZONA, GUGUR, ...).
+        zona_ket = k(raw[c_ket]) if c_ket is not None else ""
+        if c_program is not None:
+            ket = k(raw[c_program])
+            spk = ket.startswith("FIX")
+        else:
+            ket, spk = zona_ket, True
 
         baris = {
             "sales": dikenal["sales"],
@@ -289,7 +314,8 @@ def baca_sheet(ws, label, satuan, bulan, tahun, minggu, peta_sales, koordinat, s
             "tipe": tipe,
             "channel": "",
             "ket": ket,
-            "spk": True,
+            "zonaKet": zona_ket if c_program is not None else "",
+            "spk": spk,
             "zona": zona_final if zona_final not in ("", "-", "0") else "",
             "diskon": None,
             "tgtWeek": num(raw[c_tgtwk]) if c_tgtwk is not None else None,

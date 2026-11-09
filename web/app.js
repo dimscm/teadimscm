@@ -363,6 +363,8 @@
     if (r.kelurahan) extra += kv("Kelurahan", esc(r.kelurahan));
     if (r.tipe) extra += kv("Tipe outlet", esc(r.tipe));
     if (r.ket) extra += kv("Keterangan", esc(r.ket));
+    // Status zona bulan ini menurut kantor (TURUN ZONA, GUGUR, ...).
+    if (r.zonaKet) extra += kv("Status zona", esc(r.zonaKet));
     if (r.zona) extra += kv(r.zonaLabel || "Zona", esc(r.zona));
     if (r.channel) extra += kv("Channel", esc(r.channel));
 

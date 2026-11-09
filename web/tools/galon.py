@@ -28,6 +28,7 @@ JUDUL = {
     "total": ("TOTAL",),
     "rate": ("POT. DISCOUNT/GALON",),
     "cashback": ("TOTAL POT. DISCOUNT",),
+    "ket": ("KETERANGAN",),
 }
 
 # Tipe outlet yang memakai tabel GROMIN (judul sheet: "GROMIN, GROSIR, LMD").
@@ -157,8 +158,9 @@ def baca(sheets, labels_minggu, peta_sales, koordinat):
                 "alamat": rapikan(raw[kol["alamat"]]) if kol["alamat"] is not None else "",
                 "tipe": tipe,
                 "channel": "",
-                "ket": "",
-                "spk": False,
+                # Status program: FIX IKAT TARGET / POTENSI, kalau kolomnya ada.
+                "ket": kunci(raw[kol["ket"]]) if kol["ket"] is not None else "",
+                "spk": kunci(raw[kol["ket"]]).startswith("FIX") if kol["ket"] is not None else False,
                 "zona": "",
                 "diskon": rate_now,
                 "tgtWeek": None,

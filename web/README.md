@@ -5,9 +5,16 @@ produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **November 2026 (W44–W47)**, realisasi sampai
-W45 berjalan — 5 produk (LM 600, LM 1500+330, TPH, Nipis Madu, Galon 15L) /
-122 outlet, dari form monitoring resmi
-`MONITORING_IKAT_TARGET_Q4._JAKTIM_DAN_BEKASI_2026_W44.xlsx`.
+W45 berjalan — 5 produk / 161 outlet, dari `target_nov_ai.xlsx` (form
+monitoring resmi yang sudah dipangkas ke outlet tim, plus kolom KETERANGAN).
+
+> **Status program di kolom KETERANGAN paling kanan.** Form monitoring yang
+> disiapkan sendiri menambah kolom KETERANGAN berisi FIX IKAT TARGET
+> (MASTER) / (TAMBAHAN) / POTENSI — itu yang dipakai filter Keterangan dan
+> penanda SPK. Kolom itu dikenali dari isinya, karena judulnya sama dengan
+> kolom keterangan zona di tiap blok bulan (TURUN ZONA, GUGUR, ...), yang
+> tetap tampil di panel outlet sebagai "Status zona". Outlet POTENSI ikut
+> dihitung sisa cashback-nya, seperti di Oktober.
 
 > **Tiga bentuk workbook, tiga pembaca.** Sampai September: "POTENSI ..."
 > (`tools/build_data.py`). Oktober: sheet "IKAT ..." (`tools/build_ikat.py`).
