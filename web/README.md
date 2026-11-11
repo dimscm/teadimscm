@@ -5,7 +5,7 @@ produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **November 2026 (W44–W47)**, realisasi sampai
-W45 berjalan — 5 produk / 161 outlet, dari `target_nov_ai.xlsx` (form
+W46 berjalan — 5 produk / 161 outlet, dari `target_nov_ai.xlsx` (form
 monitoring resmi yang sudah dipangkas ke outlet tim, plus kolom KETERANGAN).
 
 > **Status program di kolom KETERANGAN paling kanan.** Form monitoring yang
