@@ -5,8 +5,10 @@ produk**, dan tiap baris = satu outlet dengan target bulan berjalan, realisasi
 mingguan, kekurangan, serta achievement-nya.
 
 Periode yang sedang tampil: **November 2026 (W44–W47)**, realisasi sampai
-W46 berjalan — 5 produk / 161 outlet, dari `target_nov_ai.xlsx` (form
-monitoring resmi yang sudah dipangkas ke outlet tim, plus kolom KETERANGAN).
+W46 — 5 produk / 161 outlet, dari `TARGET_DIMAS_nov.xlsx` (form monitoring
+yang dipangkas ke outlet tim, plus kolom KETERANGAN). Di file ini kolom
+cashback sheet TPH, Nipis Madu, dan LM tidak bergerak sejak file W44, jadi
+46 baris dihitung ulang dari strata (lihat "Cashback dihitung ulang").
 
 > **Status program di kolom KETERANGAN paling kanan.** Form monitoring yang
 > disiapkan sendiri menambah kolom KETERANGAN berisi FIX IKAT TARGET
